@@ -1,0 +1,29 @@
+# ===== .NET / C# =====
+wppAlertaAi/bin/
+wppAlertaAi/obj/
+wppAlertaAi/*.db
+wppAlertaAi/*.db-shm
+wppAlertaAi/*.db-wal
+
+# Arquivo com chaves de API — NUNCA commitar
+wppAlertaAi/appsettings.json
+
+# ===== Node.js (bridge + frontend) =====
+node_modules/
+**/node_modules/
+
+# ===== WhatsApp auth (sessão local) =====
+wppAlertaAi/auth_info_baileys_*/
+
+# ===== Frontend build =====
+painelAlertaAI/dist/
+
+# ===== Geral =====
+.env
+.env.local
+*.log
+.DS_Store
+Thumbs.db
+
+# ===== Claude Code (ferramenta local) =====
+.claude/

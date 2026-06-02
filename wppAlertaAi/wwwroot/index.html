@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlertAi | Painel de Emergência</title>
+    <!-- Bootstrap 3 (Hard Rule: Intelectah) -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <style>
+        body { background-color: #f4f7f6; padding-top: 20px; }
+        .occurrence-card { margin-bottom: 20px; transition: all 0.3s ease; }
+        .occurrence-card:hover { transform: scale(1.02); }
+        .severity-Alta { border-left: 8px solid #d9534f; }
+        .severity-Media { border-left: 8px solid #f0ad4e; }
+        .severity-Baixa { border-left: 8px solid #5bc0de; }
+        .navbar-brand { font-weight: bold; color: #d9534f !important; }
+        #connection-status { margin-left: 15px; }
+        .timestamp { font-size: 0.85em; color: #777; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-default">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <a class="navbar-brand" href="#">🚨 AlertAi Dashboard</a>
+        </div>
+        <p class="navbar-text navbar-right" id="connection-status">
+            Status: <span class="label label-warning">Conectando...</span>
+        </p>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="page-header">
+                <h1>Ocorrências em Tempo Real <small>Triagem via Gemini AI</small></h1>
+            </div>
+            
+            <div id="occurrence-list">
+                <!-- As ocorrências aparecerão aqui -->
+                <div class="well text-center" id="empty-state">
+                    <h4>Aguardando novas ocorrências do WhatsApp...</h4>
+                    <p>Fique de olho! Quando uma mensagem chegar via Evolution API, ela aparecerá aqui instantaneamente.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+
+<script>
+    // 1. Configuração do SignalR
+    const connection = new signalR.HubConnectionBuilder()
+        .withUrl("/hubs/emergency")
+        .withAutomaticReconnect()
+        .build();
+
+    // 2. Escuta de novas ocorrências
+    connection.on("NewOccurrence", function (occurrence) {
+        $("#empty-state").hide();
+        
+        const date = new Date(occurrence.dataOcorrencia).toLocaleString('pt-BR');
+        
+        const html = `
+            <div class="panel panel-default occurrence-card severity-${occurrence.severidade}">
+                <div class="panel-heading">
+                    <h3 class="panel-title">
+                        <strong>[${occurrence.categoria.toUpperCase()}]</strong> - ${occurrence.telefone}
+                        <span class="pull-right label ${getSeverityLabel(occurrence.severidade)}">${occurrence.severidade}</span>
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    <p><strong>Mensagem Original:</strong> <em>"${occurrence.mensagemOriginal}"</em></p>
+                    <p><strong>Resumo IA:</strong> ${occurrence.resumo}</p>
+                    <div class="alert alert-info" style="margin-bottom: 0;">
+                        <strong>Ação Recomendada:</strong> ${occurrence.acaoRecomendada}
+                    </div>
+                </div>
+                <div class="panel-footer">
+                    <span class="timestamp">Recebido em: ${date}</span>
+                </div>
+            </div>
+        `;
+
+        $(html).prependTo("#occurrence-list").hide().slideDown();
+    });
+
+    // Função auxiliar para cores do Bootstrap
+    function getSeverityLabel(severity) {
+        switch(severity) {
+            case 'Alta': return 'label-danger';
+            case 'Media': return 'label-warning';
+            case 'Baixa': return 'label-info';
+            default: return 'label-default';
+        }
+    }
+
+    // 3. Iniciar Conexão
+    connection.start().then(function () {
+        $("#connection-status span")
+            .removeClass("label-warning")
+            .addClass("label-success")
+            .text("Conectado");
+    }).catch(function (err) {
+        $("#connection-status span")
+            .removeClass("label-warning")
+            .addClass("label-danger")
+            .text("Erro de Conexão");
+        return console.error(err.toString());
+    });
+</script>
+
+</body>
+</html>

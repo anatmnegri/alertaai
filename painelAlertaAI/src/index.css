@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+@theme {
+  /* Cores da sidebar */
+  --color-sidebar: #111111;
+  --color-sidebar-hover: #1a1a1a;
+  --color-sidebar-active: #1a3a1f;
+  --color-sidebar-text: #9ca3af;
+  --color-sidebar-text-active: #ffffff;
+
+  /* Cores principais */
+  --color-bg: #f0f2f5;
+  --color-card: #ffffff;
+  --color-orange: #f97316;
+  --color-orange-dark: #ea580c;
+
+  /* Status */
+  --color-critico: #ef4444;
+  --color-critico-bg: #fef2f2;
+  --color-moderado: #f97316;
+  --color-moderado-bg: #fff7ed;
+  --color-leve: #22c55e;
+  --color-leve-bg: #f0fdf4;
+
+  /* Previsões */
+  --color-amarelo: #eab308;
+  --color-amarelo-bg: #fefce8;
+
+  /* Tipografia */
+  --font-sans: 'Poppins', system-ui, -apple-system, sans-serif;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg);
+  color: #1f2937;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Leaflet fix de z-index para não sobrepor elementos */
+.leaflet-container {
+  z-index: 0;
+}
+
+/* Scrollbar sutil na área principal */
+main::-webkit-scrollbar {
+  width: 6px;
+}
+main::-webkit-scrollbar-track {
+  background: transparent;
+}
+main::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 999px;
+}
+main::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
