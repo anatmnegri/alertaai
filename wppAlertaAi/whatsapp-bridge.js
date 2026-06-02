@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const axios = require('axios');
@@ -6,7 +8,7 @@ const QRCode = require('qrcode-terminal');
 
 // ===== CONFIGURAÇÃO =====
 const API_URL = process.env.API_URL || 'http://localhost:5019/api/triage';
-const YOUR_PHONE = '5581999046994';
+const YOUR_PHONE = process.env.YOUR_PHONE || '';
 const SELF_CHAT_JID = `${YOUR_PHONE}@s.whatsapp.net`;
 const AUTH_DIR = `auth_info_baileys_${YOUR_PHONE}`;
 

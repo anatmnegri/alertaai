@@ -6,7 +6,7 @@ wppAlertaAi/*.db-shm
 wppAlertaAi/*.db-wal
 
 # Arquivo com chaves de API — NUNCA commitar
-wppAlertaAi/appsettings.json
+wppAlertaAi/.env
 
 # ===== Node.js (bridge + frontend) =====
 node_modules/

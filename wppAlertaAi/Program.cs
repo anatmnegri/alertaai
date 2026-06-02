@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using DotNetEnv;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
@@ -8,6 +9,8 @@ using AlertAi.Models;
 using AlertAi.Services;
 using AlertAi.Configuration;
 using AlertAi.Hubs;
+
+Env.Load(); // carrega wppAlertaAi/.env como variáveis de ambiente
 
 var builder = WebApplication.CreateBuilder(args);
 
