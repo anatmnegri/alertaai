@@ -279,6 +279,10 @@ Responda APENAS JSON válido:
 
         var start = trimmed.IndexOf('{');
         var end = trimmed.LastIndexOf('}');
+
+        if (start < 0 || end < start)
+            throw new FormatException($"Nenhum objeto JSON encontrado. Texto recebido: {trimmed[..Math.Min(300, trimmed.Length)]}");
+
         return trimmed[start..(end + 1)];
     }
 
