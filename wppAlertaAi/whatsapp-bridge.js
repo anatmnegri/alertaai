@@ -358,12 +358,16 @@ async function connectToWhatsApp() {
                             continue;
                         }
 
-                        if (response.data?.registrouOcorrencia) {
+                        const duplicate = !!response.data?.duplicate;
+
+                        if (response.data?.registrouOcorrencia || duplicate) {
                             const triage = response.data?.data;
                             logger.info(
                                 triage
-                                    ? `✅ Ocorrência registrada: ${triage.categoria} (${triage.severidade})`
-                                    : '✅ Ocorrência registrada (deduplicada ou sem detalhe)'
+                                    ? `✅ Ocorrência registrada: ${triage.categoria} (${triage.severidade})${duplicate ? ' [deduplicada]' : ''}`
+                                    : duplicate
+                                        ? '✅ Ocorrência já registrada (deduplicada)'
+                                        : '✅ Ocorrência registrada'
                             );
                         } else {
                             logger.info('💬 Coletando informações — aguardando próxima mensagem do cidadão');
