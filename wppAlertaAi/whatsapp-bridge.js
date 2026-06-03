@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, downloadMediaMessage } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const axios = require('axios');
 const pino = require('pino');
@@ -356,6 +356,40 @@ async function connectToWhatsApp() {
                         continue;
                     }
 
+                    // Nova Lógica: Verificar Mídia e Fazer o Download
+                    let mediaBase64 = null;
+                    let mediaType = null;
+
+                    const isImage = msg.message.imageMessage;
+                    const isVideo = msg.message.videoMessage;
+
+                    if (isImage || isVideo) {
+                        try {
+                            logger.info(`📸 Mídia detectada. Baixando arquivo...`);
+                            
+                            // O Baileys baixa a mídia e a retorna como um Buffer da memória
+                            const buffer = await downloadMediaMessage(
+                                msg,
+                                'buffer',
+                                {},
+                                { 
+                                    logger,
+                                    // Opcional: Re-autenticar o socket de mídia caso necessário
+                                    reuploadRequest: sock.updateMediaMessage
+                                }
+                            );
+
+                            // Converte o Buffer para Base64 para enviar via API JSON
+                            mediaBase64 = buffer.toString('base64');
+                            mediaType = isImage ? 'image/jpeg' : 'video/mp4'; // Tipo básico
+                            
+                            logger.info(`✅ Download de mídia concluído!`);
+                            
+                        } catch (err) {
+                            logger.error(`❌ Falha ao baixar mídia: ${err.message}`);
+                        }
+                    }
+
                     // ===== PROCESSAR MENSAGEM =====
                     logger.info(`📩 Processando: "${text}"`);
 
@@ -365,9 +399,15 @@ async function connectToWhatsApp() {
                             API_URL,
                             {
                                 TelefoneRemetente: YOUR_PHONE,
-                                MensagemTexto: text
+                                MensagemTexto: text || "[Mídia recebida]", // Garante que mande algo se vier só a foto
+                                MediaBase64: mediaBase64, // Adicionado
+                                MediaType: mediaType      // Adicionado
                             },
-                            { timeout: 30000 } // 30s timeout
+                            { 
+                                timeout: 60000, // Aumente o timeout, arquivos grandes demoram mais
+                                maxBodyLength: Infinity, // Importante para enviar JSONs grandes (Base64 de vídeo)
+                                maxContentLength: Infinity
+                            } 
                         );
 
                         const triage = response.data?.data;

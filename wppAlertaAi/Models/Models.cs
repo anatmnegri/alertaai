@@ -1,6 +1,11 @@
 namespace AlertAi.Models;
 
-public record WebhookPayload(string TelefoneRemetente, string MensagemTexto);
+public record WebhookPayload(
+    string TelefoneRemetente, 
+    string MensagemTexto, 
+    string? MediaBase64 = null, 
+    string? MediaType = null
+);
 
 // --- DTOs para Evolution API (WhatsApp) ---
 public record EvolutionWebhookPayload(string Event, string Instance, EvolutionMessageData? Data);
@@ -34,4 +39,5 @@ public class Occurrence
     public double? Longitude { get; set; }
     public DateTime DataOcorrencia { get; set; } = DateTime.UtcNow;
     public bool Aberto { get; set; } = true;
+    public string? MediaUrl { get; set; }
 }

@@ -48,6 +48,7 @@ using (var scope = app.Services.CreateScope()) {
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Occurrences ADD COLUMN Bairro TEXT"); } catch { }
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Occurrences ADD COLUMN Latitude REAL"); } catch { }
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Occurrences ADD COLUMN Longitude REAL"); } catch { }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE Occurrences ADD COLUMN MediaUrl TEXT"); } catch { }
 }
 
 app.UseCors("PainelPolicy");
@@ -60,20 +61,52 @@ app.UseSwaggerUI();
 app.MapHub<EmergencyHub>("/hubs/emergency");
 
 // 3. Endpoint de Triagem (Consumido pelo Script de Ponte)
+// 3. Endpoint de Triagem (Consumido pelo Script de Ponte)
 app.MapPost("/api/triage", async (
     WebhookPayload payload,
     IEmergencyTriageService triageService,
     AppDbContext db,
     IHubContext<EmergencyHub> hubContext,
-    IHttpClientFactory httpClientFactory) =>
+    IHttpClientFactory httpClientFactory,
+    IWebHostEnvironment env) => // NOVO: Injetado para acessar a pasta wwwroot
 {
-    // A. Triagem via Gemini
+    string? mediaUrlPath = null;
+
+    // A. LÓGICA DE MÍDIA: Verifica se a mensagem contém anexo em Base64
+    if (!string.IsNullOrEmpty(payload.MediaBase64) && !string.IsNullOrEmpty(payload.MediaType))
+    {
+        try
+        {
+            // Define extensão (.jpg ou .mp4)
+            string extensao = payload.MediaType.Contains("video") ? ".mp4" : ".jpg";
+            string nomeArquivo = $"{Guid.NewGuid()}{extensao}";
+            
+            // Pasta /wwwroot/uploads
+            string pastaUploads = Path.Combine(env.WebRootPath, "uploads");
+            if (!Directory.Exists(pastaUploads)) Directory.CreateDirectory(pastaUploads);
+
+            string caminhoCompleto = Path.Combine(pastaUploads, nomeArquivo);
+
+            // Converte Base64 para arquivo físico
+            byte[] mediaBytes = Convert.FromBase64String(payload.MediaBase64);
+            await File.WriteAllBytesAsync(caminhoCompleto, mediaBytes);
+
+            // Caminho que será salvo no BD e lido pelo Front-End
+            mediaUrlPath = $"/uploads/{nomeArquivo}";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao processar mídia: {ex.Message}");
+        }
+    }
+
+    // B. Triagem via Gemini
     var triage = await triageService.TriageAsync(payload.MensagemTexto);
 
-    // B. Geocodificação do endereço extraído
+    // C. Geocodificação do endereço extraído
     var (lat, lng) = await GeocodificarAsync(httpClientFactory, triage.endereco, triage.bairro);
 
-    // C. Persistência
+    // D. Persistência
     var occurrence = new Occurrence {
         Telefone = payload.TelefoneRemetente,
         MensagemOriginal = payload.MensagemTexto,
@@ -85,13 +118,14 @@ app.MapPost("/api/triage", async (
         Bairro = triage.bairro,
         Latitude = lat,
         Longitude = lng,
-        DataOcorrencia = DateTime.UtcNow
+        DataOcorrencia = DateTime.UtcNow,
+        MediaUrl = mediaUrlPath // NOVO: Adiciona a URL do arquivo no objeto
     };
 
     db.Occurrences.Add(occurrence);
     await db.SaveChangesAsync();
 
-    // D. Notificação Real-time para o Dashboard
+    // E. Notificação Real-time para o Dashboard
     await hubContext.Clients.All.SendAsync("NewOccurrence", occurrence);
 
     return Results.Ok(new {
