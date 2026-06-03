@@ -5,15 +5,18 @@ const { Boom } = require('@hapi/boom');
 const axios = require('axios');
 const pino = require('pino');
 const QRCode = require('qrcode-terminal');
+const { extractMessageText, extractLocationFromMessage } = require('./bridge/message-parsers');
 
 // ===== CONFIGURAÇÃO =====
-const API_URL = process.env.API_URL || 'http://localhost:5019/api/triage';
+const API_URL = process.env.API_URL || 'http://localhost:5019/api/chat';
 const YOUR_PHONE = process.env.YOUR_PHONE || '';
 const SELF_CHAT_JID = `${YOUR_PHONE}@s.whatsapp.net`;
 const AUTH_DIR = `auth_info_baileys_${YOUR_PHONE}`;
 
 // ===== ESTADO GLOBAL =====
 const sentMessageIds = new Set();
+const processedIncomingIds = new Set();
+const MAX_PROCESSED_IDS = 500;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
 let connectionReady = false;
@@ -69,54 +72,6 @@ function delay(ms) {
 function getBackoffDelay(attempt) {
     // Backoff: 2s, 4s, 8s, 16s, 30s max
     return Math.min(2000 * Math.pow(2, attempt), 30000);
-}
-
-function extractMessageText(message) {
-    if (!message) {
-        return null;
-    }
-
-    if (message.conversation) {
-        return message.conversation;
-    }
-
-    if (message.extendedTextMessage?.text) {
-        return message.extendedTextMessage.text;
-    }
-
-    if (message.imageMessage?.caption) {
-        return message.imageMessage.caption;
-    }
-
-    if (message.videoMessage?.caption) {
-        return message.videoMessage.caption;
-    }
-
-    if (message.documentMessage?.caption) {
-        return message.documentMessage.caption;
-    }
-
-    if (message.ephemeralMessage?.message) {
-        return extractMessageText(message.ephemeralMessage.message);
-    }
-
-    if (message.viewOnceMessage?.message) {
-        return extractMessageText(message.viewOnceMessage.message);
-    }
-
-    if (message.buttonsResponseMessage?.selectedButtonId) {
-        return message.buttonsResponseMessage.selectedButtonId;
-    }
-
-    if (message.listResponseMessage?.singleSelectReply?.selectedRowId) {
-        return message.listResponseMessage.singleSelectReply.selectedRowId;
-    }
-
-    if (message.templateButtonReplyMessage?.selectedId) {
-        return message.templateButtonReplyMessage.selectedId;
-    }
-
-    return null;
 }
 
 // ===== MAIN CONNECTION FUNCTION =====
@@ -310,6 +265,12 @@ async function connectToWhatsApp() {
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
             logger.debug(`[messages.upsert] type=${type}, count=${messages.length}`);
 
+            // Baileys reenvia o mesmo evento em "append"/"notify"; só processar mensagens novas
+            if (type !== 'notify') {
+                logger.debug(`Ignorando messages.upsert type=${type}`);
+                return;
+            }
+
             // Ignorar eventos durante pairing/sincronização
             if (!connectionReady) {
                 logger.debug('⏸️  Ignorando mensagens durante pairing/sincronização');
@@ -343,53 +304,72 @@ async function connectToWhatsApp() {
                         logger.debug(`Self-chat via @lid identificado: ${remoteJid}`);
                     }
 
+                    const messageId = msg.key?.id;
+                    if (messageId) {
+                        if (processedIncomingIds.has(messageId)) {
+                            logger.debug(`Dedup bridge: mensagem já processada ${messageId}`);
+                            continue;
+                        }
+                        processedIncomingIds.add(messageId);
+                        if (processedIncomingIds.size > MAX_PROCESSED_IDS) {
+                            const oldest = processedIncomingIds.values().next().value;
+                            processedIncomingIds.delete(oldest);
+                        }
+                    }
+
                     // Ignorar replay de histórico: só processar mensagens geradas depois da conexão ficar online.
                     if (lastConnectionTime && msg.messageTimestamp && (msg.messageTimestamp * 1000) < (lastConnectionTime - 10000)) {
                         logger.debug(`Ignorando mensagem antiga do sync: ${remoteJid} @ ${msg.messageTimestamp}`);
                         continue;
                     }
 
-                    // Extrair texto
                     const text = extractMessageText(msg.message);
-                    if (!text) {
-                        logger.debug(`Sem texto na mensagem (chaves: ${Object.keys(msg.message).join(', ')})`);
+                    const location = extractLocationFromMessage(msg.message);
+
+                    if (!text && !location) {
+                        logger.debug(`Sem texto nem localização (chaves: ${Object.keys(msg.message).join(', ')})`);
                         continue;
                     }
 
-                    // ===== PROCESSAR MENSAGEM =====
-                    logger.info(`📩 Processando: "${text}"`);
+                    const rotulo = location
+                        ? `localização GPS (${location.tipo})${text ? ` + texto` : ''}`
+                        : `"${text}"`;
+                    logger.info(`📩 Processando: ${rotulo}`);
 
                     try {
-                        // Call C# API
                         const response = await axios.post(
                             API_URL,
                             {
                                 TelefoneRemetente: YOUR_PHONE,
-                                MensagemTexto: text
+                                MensagemTexto: text ?? '',
+                                IdMensagemWhatsapp: messageId ?? null,
+                                Latitude: location?.latitude ?? null,
+                                Longitude: location?.longitude ?? null,
+                                TipoMensagem: location?.tipo ?? null,
+                                NomeLocalWhatsapp: location?.nome ?? null,
+                                EnderecoWhatsapp: location?.enderecoWhatsapp ?? null
                             },
-                            { timeout: 30000 } // 30s timeout
+                            { timeout: 30000 }
                         );
 
-                        const triage = response.data?.data;
-                        if (!triage) {
-                            logger.error('❌ Resposta da API sem dados de triage');
+                        const respostaBot = response.data?.respostaBot;
+                        if (!respostaBot) {
+                            logger.error('❌ Resposta da API sem respostaBot');
                             continue;
                         }
 
-                        logger.info(`✅ Triage: ${triage.categoria} (${triage.severidade})`);
+                        if (response.data?.registrouOcorrencia) {
+                            const triage = response.data?.data;
+                            logger.info(
+                                triage
+                                    ? `✅ Ocorrência registrada: ${triage.categoria} (${triage.severidade})`
+                                    : '✅ Ocorrência registrada (deduplicada ou sem detalhe)'
+                            );
+                        } else {
+                            logger.info('💬 Coletando informações — aguardando próxima mensagem do cidadão');
+                        }
 
-                        // ===== ENVIAR RESPOSTA =====
-                        const localizacao = [triage.endereco, triage.bairro].filter(Boolean).join(', ') || 'Não identificada'
-                        const sentMessage = await sock.sendMessage(remoteJid, {
-                            text:
-                                `🚨 *AlertAi: Ocorrência Registrada!*\n\n` +
-                                `Sua mensagem foi triada pela IA e já está no painel.\n\n` +
-                                `*Categoria:* ${triage.categoria}\n` +
-                                `*Severidade:* ${triage.severidade}\n` +
-                                `*Localização:* ${localizacao}\n` +
-                                `*Resumo:* ${triage.resumo}\n` +
-                                `*Ação:* ${triage.acao_recomendada}`
-                        });
+                        const sentMessage = await sock.sendMessage(remoteJid, { text: respostaBot });
 
                         if (sentMessage?.key?.id) {
                             sentMessageIds.add(sentMessage.key.id);
