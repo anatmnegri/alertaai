@@ -144,8 +144,7 @@ public class NominatimGeocodingService : IGeocodingService
         if (!string.IsNullOrWhiteSpace(bairro)) partes.Add(bairro.Trim());
         if (!string.IsNullOrWhiteSpace(cidade)) partes.Add(cidade.Trim());
         if (!string.IsNullOrWhiteSpace(uf)) partes.Add(uf.Trim());
-        else if (string.IsNullOrWhiteSpace(cidade) ||
-                 cidade.Contains("Recife", StringComparison.OrdinalIgnoreCase))
+        else if (string.IsNullOrWhiteSpace(cidade))
             partes.Add("Recife, PE");
         else
             partes.Add("Brasil");
