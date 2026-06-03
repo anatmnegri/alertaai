@@ -4,5 +4,5 @@ namespace AlertAi.Services;
 
 public interface IEmergencyTriageService
 {
-    Task<TriageResult> TriageAsync(string message, CancellationToken ct = default);
+    Task<TriageResult> TriageAsync(TriageInput input, CancellationToken ct = default);
 }
