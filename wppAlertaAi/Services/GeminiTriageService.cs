@@ -80,6 +80,12 @@ public class GeminiTriageService : IEmergencyTriageService
     {
         var mensagemEscapada = message.Replace("\"", "\\\"");
         var categorias = string.Join("\" | \"", CategoriasDesastre.Todas);
+        var instrucaoCidade = somenteLocalizacaoWhatsapp
+            ? "null"
+            : "Município mencionado ou inferido; se não houver pista, use Recife";
+        var instrucaoUf = somenteLocalizacaoWhatsapp
+            ? "null"
+            : "Sigla UF com 2 letras (ex.: PE, SP) conforme a cidade; se Recife, use PE";
         var contextoGps = somenteLocalizacaoWhatsapp
             ? @"
 O cidadão enviou APENAS um pin de localização GPS pelo WhatsApp, sem texto descritivo.
@@ -103,8 +109,8 @@ Use exatamente este formato:
     ""acao_recomendada"": ""Ação imediata recomendada para a central"",
     ""endereco"": ""Logradouro (rua/avenida) e número se houver; normalize abreviações (ex.: Av → Avenida), ou null"",
     ""bairro"": ""Bairro ou localidade mencionados na mensagem, ou null se não informado"",
-    ""cidade"": ""Município mencionado ou inferido; se não houver pista, use Recife"",
-    ""uf"": ""Sigla UF com 2 letras (ex.: PE, SP) conforme a cidade; se Recife, use PE""
+    ""cidade"": ""{instrucaoCidade}"",
+    ""uf"": ""{instrucaoUf}""
 }}
 
 Critérios de severidade:
