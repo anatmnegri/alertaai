@@ -11,7 +11,23 @@ const CATEGORIA_MAP = {
   Enchente: 'Alagamento',
   Incendio: 'Incêndio',
   Acidente: 'Acidente',
+  Terremoto: 'Terremoto',
+  Tremor: 'Tremor',
+  Tempestade: 'Tempestade',
   Outros: 'Outros',
+}
+
+const ORIGEM_LABEL = {
+  whatsapp_gps: 'GPS WhatsApp',
+  geocode_texto: 'Texto (geocodificado)',
+}
+
+function formatarLocalizacao(o) {
+  const via = [o.endereco, o.numero, o.bairro].filter(Boolean).join(', ')
+  const municipio =
+    o.cidade && o.uf ? `${o.cidade} - ${o.uf}` : o.cidade || o.uf || null
+  const partes = [via, municipio].filter(Boolean)
+  return partes.length > 0 ? partes.join(', ') : 'Localização não informada'
 }
 
 function formatarData(isoString) {
@@ -26,8 +42,7 @@ function formatarData(isoString) {
 }
 
 export function mapearOcorrencia(o) {
-  const partes = [o.endereco, o.bairro].filter(Boolean)
-  const localizacao = partes.length > 0 ? partes.join(', ') : 'Localização não informada'
+  const localizacao = formatarLocalizacao(o)
 
   return {
     id: String(o.id).padStart(5, '0'),
@@ -37,6 +52,12 @@ export function mapearOcorrencia(o) {
     localizacao,
     endereco: o.endereco ?? null,
     bairro: o.bairro ?? null,
+    numero: o.numero ?? null,
+    cidade: o.cidade ?? null,
+    uf: o.uf ?? null,
+    origemLocalizacao: o.origemLocalizacao ?? null,
+    origemLocalizacaoLabel:
+      ORIGEM_LABEL[o.origemLocalizacao] ?? null,
     lat: o.latitude ?? null,
     lng: o.longitude ?? null,
     dataISO: o.dataOcorrencia,

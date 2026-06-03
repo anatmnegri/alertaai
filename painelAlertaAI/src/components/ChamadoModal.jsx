@@ -137,9 +137,41 @@ export default function ChamadoModal({ chamado, onClose }) {
             {/* Localização */}
             <div>
               <p style={label}>Localização</p>
+              {chamado.origemLocalizacaoLabel && (
+                <span style={{
+                  display: 'inline-block',
+                  marginBottom: 8,
+                  padding: '3px 10px',
+                  borderRadius: 12,
+                  background: 'rgba(250,128,1,0.12)',
+                  color: '#C2410C',
+                  fontFamily: fn,
+                  fontSize: 11,
+                  fontWeight: 600,
+                }}>
+                  {chamado.origemLocalizacaoLabel}
+                </span>
+              )}
               <p style={{ fontFamily: fn, fontSize: 13, color: '#374151', fontStyle: 'italic', margin: 0 }}>
                 {chamado.localizacao}
               </p>
+              {chamado.lat != null && chamado.lng != null && (
+                <a
+                  href={`https://www.openstreetmap.org/?mlat=${chamado.lat}&mlon=${chamado.lng}#map=16/${chamado.lat}/${chamado.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-block',
+                    marginTop: 10,
+                    fontFamily: fn,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#00936C',
+                  }}
+                >
+                  Abrir no mapa (OpenStreetMap)
+                </a>
+              )}
             </div>
 
             {/* Data | Tipo | Classificação — mesma linha */}

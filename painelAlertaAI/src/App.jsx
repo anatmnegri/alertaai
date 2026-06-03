@@ -8,12 +8,14 @@ import PieChartCard  from './components/PieChartCard'
 import ChamadosTable from './components/ChamadosTable'
 import RightPanel    from './components/RightPanel'
 import ChamadosPage  from './pages/ChamadosPage'
+import ChamadoModal  from './components/ChamadoModal'
 import { fetchOcorrencias, mapearOcorrencia } from './services/api'
 import * as signalR from '@microsoft/signalr'
 
 function App() {
   const [activePage, setActivePage] = useState('Dashboard')
   const [chamados, setChamados] = useState([])
+  const [chamadoSelecionado, setChamadoSelecionado] = useState(null)
   const mainRef = useRef(null)
 
   useEffect(() => {
@@ -47,7 +49,10 @@ function App() {
         {activePage === 'Dashboard' && (
           <div style={{ padding: '40px', display: 'flex', flexDirection: 'column', gap: 20, minHeight: '100%' }}>
             <Header />
-            <MapCard chamados={chamados} />
+            <MapCard
+              chamados={chamados}
+              onChamadoSelect={setChamadoSelecionado}
+            />
             <div className="flex gap-5">
               <BarChartCard />
               <PieChartCard chamados={chamados} />
@@ -60,6 +65,13 @@ function App() {
       </main>
 
       <RightPanel />
+
+      {chamadoSelecionado && (
+        <ChamadoModal
+          chamado={chamadoSelecionado}
+          onClose={() => setChamadoSelecionado(null)}
+        />
+      )}
     </div>
   )
 }
