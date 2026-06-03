@@ -81,10 +81,10 @@ public class GeminiTriageService : IEmergencyTriageService
         var mensagemEscapada = message.Replace("\"", "\\\"");
         var categorias = string.Join("\" | \"", CategoriasDesastre.Todas);
         var instrucaoCidade = somenteLocalizacaoWhatsapp
-            ? "null"
+            ? "Use valor JSON null (sem aspas)"
             : "Município mencionado ou inferido; se não houver pista, use Recife";
         var instrucaoUf = somenteLocalizacaoWhatsapp
-            ? "null"
+            ? "Use valor JSON null (sem aspas)"
             : "Sigla UF com 2 letras (ex.: PE, SP) conforme a cidade; se Recife, use PE";
         var contextoGps = somenteLocalizacaoWhatsapp
             ? @"
