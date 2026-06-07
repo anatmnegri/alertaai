@@ -60,7 +60,7 @@ const iconeOcorrencia = L.divIcon({
   iconAnchor: [15, 15],
 })
 
-export default function MapCard({ chamados = [] }) {
+export default function MapCard({ chamados = [], onChamadoSelect }) {
   const [busca, setBusca] = useState('')
   const [posicao, setPosicao] = useState(null)
 
@@ -209,7 +209,45 @@ export default function MapCard({ chamados = [] }) {
               key={`chamado-${c.id}`}
               position={[c.lat, c.lng]}
               icon={iconeOcorrencia}
-            />
+              eventHandlers={{
+                click: () => onChamadoSelect?.(c),
+              }}
+            >
+              <Popup>
+                <div style={{ fontFamily: font, fontSize: 11, minWidth: 160 }}>
+                  <p style={{ fontWeight: 600, margin: '0 0 4px' }}>
+                    Chamado #{c.id}
+                  </p>
+                  <p style={{ color: '#8F92A1', margin: '0 0 8px', lineHeight: 1.4 }}>
+                    {c.localizacao}
+                  </p>
+                  <p style={{ margin: '0 0 8px' }}>
+                    <span style={{ fontWeight: 600 }}>{c.tipo}</span>
+                    {' · '}
+                    {c.status}
+                  </p>
+                  {onChamadoSelect && (
+                    <button
+                      type="button"
+                      onClick={() => onChamadoSelect(c)}
+                      style={{
+                        background: '#FA8001',
+                        border: 'none',
+                        borderRadius: 6,
+                        color: '#fff',
+                        fontSize: 10,
+                        fontWeight: 600,
+                        padding: '6px 10px',
+                        cursor: 'pointer',
+                        fontFamily: font,
+                      }}
+                    >
+                      Ver detalhes
+                    </button>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
           ))}
         </MapContainer>
       </div>
