@@ -91,7 +91,16 @@ function extractLocationFromMessage(message) {
     };
 }
 
+function hasMedia(message) {
+    const inner = unwrapMessage(message);
+    if (!inner) return false;
+    
+    return Boolean(inner.imageMessage || inner.videoMessage);
+}
+
 module.exports = {
     extractMessageText,
-    extractLocationFromMessage
+    extractLocationFromMessage,
+    hasMedia,
+    unwrapMessage
 };

@@ -68,6 +68,7 @@ export function mapearOcorrencia(o) {
     acaoRecomendada: o.acaoRecomendada,
     mensagemOriginal: o.mensagemOriginal,
     imagem: null,
+    anexos: o.mediaUrlsJson ? JSON.parse(o.mediaUrlsJson) : [],
   }
 }
 

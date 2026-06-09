@@ -18,6 +18,7 @@ public class EmergencySession
     public string? EnderecoResumo { get; set; }
     public string? OrigemLocalizacao { get; set; }
     public int TentativasEsclarecimento { get; set; }
+    public string MediaUrlsJson { get; set; } = "[]";
     public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
     public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
 }
@@ -30,7 +31,8 @@ public record ChatMessagePayload(
     double? Longitude = null,
     string? TipoMensagem = null,
     string? NomeLocalWhatsapp = null,
-    string? EnderecoWhatsapp = null);
+    string? EnderecoWhatsapp = null,
+    string? MediaUrl = null);
 
 public record ChatMessageResponse(
     string RespostaBot,
