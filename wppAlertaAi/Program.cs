@@ -66,6 +66,8 @@ builder.Services.AddHttpClient<IEmergencyIntakeAgent, GeminiEmergencyIntakeAgent
 
 builder.Services.AddScoped<IEmergencyIntakeService, EmergencyIntakeService>();
 
+builder.Services.AddHttpClient<IAudioTranscriptionService, GeminiAudioTranscriptionService>();
+
 builder.Services.AddHttpClient("Nominatim", c =>
 
 {
@@ -190,7 +192,6 @@ app.MapPost("/api/triage", async (
         data = result.Triage
 
     });
-
 });
 
 

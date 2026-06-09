@@ -1,5 +1,6 @@
 using AlertAi.Data;
 using AlertAi.Models;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 
 namespace AlertAi.Services;
@@ -13,19 +14,27 @@ public class EmergencyIntakeService : IEmergencyIntakeService
     private readonly IEmergencyIntakeAgent _intakeAgent;
     private readonly IOccurrenceRegistrationService _registrationService;
     private readonly IGeocodingService _geocodingService;
+    private readonly IAudioTranscriptionService _audioTranscription;
     private readonly ILogger<EmergencyIntakeService> _logger;
+
+    // Caminho físico raiz onde os arquivos de mídia são salvos (wwwroot)
+    private readonly string _webRootPath;
 
     public EmergencyIntakeService(
         AppDbContext db,
         IEmergencyIntakeAgent intakeAgent,
         IOccurrenceRegistrationService registrationService,
         IGeocodingService geocodingService,
+        IAudioTranscriptionService audioTranscription,
+        IWebHostEnvironment env,
         ILogger<EmergencyIntakeService> logger)
     {
         _db = db;
         _intakeAgent = intakeAgent;
         _registrationService = registrationService;
         _geocodingService = geocodingService;
+        _audioTranscription = audioTranscription;
+        _webRootPath = env.WebRootPath;
         _logger = logger;
     }
 
@@ -38,6 +47,33 @@ public class EmergencyIntakeService : IEmergencyIntakeService
         var historico = ConversationHistory.Parse(sessao.HistoricoJson);
 
         var texto = payload.MensagemTexto?.Trim() ?? string.Empty;
+
+        // ── Transcrição de áudio ──────────────────────────────────────────
+        if (!string.IsNullOrWhiteSpace(payload.AudioUrl))
+        {
+            var audioFilePath = Path.Combine(_webRootPath, payload.AudioUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+            _logger.LogInformation("🎤 Áudio recebido, transcrevendo: {Path}", audioFilePath);
+
+            var transcricao = await _audioTranscription.TranscreverAsync(audioFilePath, ct);
+
+            if (!string.IsNullOrWhiteSpace(transcricao) &&
+                !transcricao.Contains("[áudio sem conteúdo identificável]", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("🎤 Transcrição: \"{Texto}\"", transcricao);
+                // Prefixar para deixar claro no histórico que veio de áudio
+                texto = string.IsNullOrWhiteSpace(texto)
+                    ? transcricao
+                    : $"{texto} {transcricao}";
+            }
+            else
+            {
+                _logger.LogWarning("🎤 Não foi possível transcrever o áudio ou conteúdo vazio.");
+                if (string.IsNullOrWhiteSpace(texto))
+                    texto = "(Áudio recebido — não foi possível transcrever)";
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────
+
         if (!string.IsNullOrWhiteSpace(texto))
             ConversationHistory.AddCidadao(historico, texto);
 
