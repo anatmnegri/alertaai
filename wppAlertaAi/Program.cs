@@ -80,26 +80,21 @@ builder.Services.AddHttpClient("Nominatim", c =>
 
 var app = builder.Build();
 
-
-
-using (var scope = app.Services.CreateScope())
-
+var mediaDir = Path.Combine(builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot"), "media");
+if (!Directory.Exists(mediaDir))
 {
-
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-    db.Database.EnsureCreated();
-
-    AplicarMigracoesDefensivas(db);
-
+    Directory.CreateDirectory(mediaDir);
 }
 
-
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.EnsureCreated();
+    AplicarMigracoesDefensivas(db);
+}
 
 app.UseCors("PainelPolicy");
-
 app.UseDefaultFiles();
-
 app.UseStaticFiles();
 
 app.UseSwagger();
@@ -247,13 +242,10 @@ static void AplicarMigracoesDefensivas(AppDbContext db)
         "ALTER TABLE Occurrences ADD COLUMN IdMensagemWhatsapp TEXT",
 
         "ALTER TABLE Occurrences ADD COLUMN Latitude REAL",
-
         "ALTER TABLE Occurrences ADD COLUMN Longitude REAL",
-
         "ALTER TABLE Occurrences ADD COLUMN Numero TEXT",
-
-        "ALTER TABLE Occurrences ADD COLUMN OrigemLocalizacao TEXT"
-
+        "ALTER TABLE Occurrences ADD COLUMN OrigemLocalizacao TEXT",
+        "ALTER TABLE Occurrences ADD COLUMN MediaUrlsJson TEXT DEFAULT '[]'"
     ];
 
 
@@ -279,13 +271,12 @@ static void AplicarMigracoesDefensivas(AppDbContext db)
                 EnderecoResumo TEXT,
                 OrigemLocalizacao TEXT,
                 TentativasEsclarecimento INTEGER NOT NULL DEFAULT 0,
+                MediaUrlsJson TEXT NOT NULL DEFAULT '[]',
                 CriadoEm TEXT NOT NULL,
                 AtualizadoEm TEXT NOT NULL
             );
             """);
     }
     catch { /* tabela já existe */ }
-
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE EmergencySessions ADD COLUMN MediaUrlsJson TEXT DEFAULT '[]'"); } catch { /* coluna já existe */ }
 }
-
-

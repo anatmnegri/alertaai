@@ -108,6 +108,7 @@ public class OccurrenceRegistrationService : IOccurrenceRegistrationService
             Longitude = geo.Longitude,
             OrigemLocalizacao = origem,
             IdMensagemWhatsapp = payload.IdMensagemWhatsapp,
+            MediaUrlsJson = payload.MediaUrlsJson ?? "[]",
             DataOcorrencia = DateTime.UtcNow
         };
 

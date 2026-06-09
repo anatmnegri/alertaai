@@ -41,6 +41,22 @@ public class EmergencyIntakeService : IEmergencyIntakeService
         if (!string.IsNullOrWhiteSpace(texto))
             ConversationHistory.AddCidadao(historico, texto);
 
+        if (!string.IsNullOrWhiteSpace(payload.MediaUrl))
+        {
+            var mediaUrls = System.Text.Json.JsonSerializer.Deserialize<List<string>>(sessao.MediaUrlsJson) ?? new();
+            if (mediaUrls.Count < 3)
+            {
+                mediaUrls.Add(payload.MediaUrl);
+                sessao.MediaUrlsJson = System.Text.Json.JsonSerializer.Serialize(mediaUrls);
+            }
+            
+            if (string.IsNullOrWhiteSpace(texto) && payload.Latitude == null && payload.Longitude == null)
+            {
+                // Just acknowledge media
+                texto = "(Mídia recebida do usuário)";
+            }
+        }
+
         await AtualizarLocalizacaoAsync(sessao, payload, ct);
 
         sessao.HistoricoJson = ConversationHistory.Serialize(historico);
@@ -93,7 +109,10 @@ public class EmergencyIntakeService : IEmergencyIntakeService
             idMensagemWhatsapp,
             sessao.Latitude,
             sessao.Longitude,
-            sessao.OrigemLocalizacao == OrigemLocalizacao.WhatsAppGps ? "location" : null);
+            sessao.OrigemLocalizacao == OrigemLocalizacao.WhatsAppGps ? "location" : null,
+            null,
+            null,
+            sessao.MediaUrlsJson);
 
         var registro = await _registrationService.RegisterAsync(webhook, ct);
 

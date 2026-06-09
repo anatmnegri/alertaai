@@ -1,17 +1,22 @@
 require('dotenv').config();
-
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const axios = require('axios');
 const pino = require('pino');
 const QRCode = require('qrcode-terminal');
-const { extractMessageText, extractLocationFromMessage } = require('./bridge/message-parsers');
+const fs = require('fs');
+const path = require('path');
+const { extractMessageText, extractLocationFromMessage, hasMedia, unwrapMessage } = require('./bridge/message-parsers');
 
 // ===== CONFIGURAÇÃO =====
 const API_URL = process.env.API_URL || 'http://localhost:5019/api/chat';
 const YOUR_PHONE = process.env.YOUR_PHONE || '';
 const SELF_CHAT_JID = `${YOUR_PHONE}@s.whatsapp.net`;
 const AUTH_DIR = `auth_info_baileys_${YOUR_PHONE}`;
+const MEDIA_DIR = path.join(__dirname, 'wwwroot', 'media');
+
+if (!fs.existsSync(MEDIA_DIR)) {
+    fs.mkdirSync(MEDIA_DIR, { recursive: true });
+}
 
 // ===== ESTADO GLOBAL =====
 const sentMessageIds = new Set();
@@ -79,6 +84,10 @@ async function connectToWhatsApp() {
     let sock = null;
     
     try {
+        const baileys = await import('@whiskeysockets/baileys');
+        const makeWASocket = baileys.default;
+        const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, downloadMediaMessage } = baileys;
+
         logger.info('Carregando estado de autenticação...');
         const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
         
@@ -325,15 +334,41 @@ async function connectToWhatsApp() {
 
                     const text = extractMessageText(msg.message);
                     const location = extractLocationFromMessage(msg.message);
+                    const isMedia = hasMedia(msg.message);
 
-                    if (!text && !location) {
-                        logger.debug(`Sem texto nem localização (chaves: ${Object.keys(msg.message).join(', ')})`);
+                    if (!text && !location && !isMedia) {
+                        logger.debug(`Sem texto, localização nem mídia (chaves: ${Object.keys(msg.message).join(', ')})`);
                         continue;
+                    }
+
+                    let mediaUrl = null;
+                    if (isMedia) {
+                        try {
+                            const buffer = await downloadMediaMessage(
+                                msg,
+                                'buffer',
+                                { },
+                                { logger, reuploadRequest: sock.updateMediaMessage }
+                            );
+                            
+                            const innerMsg = unwrapMessage(msg.message);
+                            const extension = innerMsg.imageMessage ? 'jpg' : (innerMsg.videoMessage ? 'mp4' : 'bin');
+                            const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${extension}`;
+                            const filePath = path.join(MEDIA_DIR, fileName);
+                            
+                            fs.writeFileSync(filePath, buffer);
+                            mediaUrl = `/media/${fileName}`;
+                            logger.info(`📸 Mídia salva: ${mediaUrl}`);
+                        } catch (mediaErr) {
+                            logger.error(`❌ Erro ao baixar mídia: ${mediaErr.message}`);
+                        }
                     }
 
                     const rotulo = location
                         ? `localização GPS (${location.tipo})${text ? ` + texto` : ''}`
-                        : `"${text}"`;
+                        : isMedia
+                            ? `mídia (${mediaUrl})${text ? ` + texto` : ''}`
+                            : `"${text}"`;
                     logger.info(`📩 Processando: ${rotulo}`);
 
                     try {
@@ -347,7 +382,8 @@ async function connectToWhatsApp() {
                                 Longitude: location?.longitude ?? null,
                                 TipoMensagem: location?.tipo ?? null,
                                 NomeLocalWhatsapp: location?.nome ?? null,
-                                EnderecoWhatsapp: location?.enderecoWhatsapp ?? null
+                                EnderecoWhatsapp: location?.enderecoWhatsapp ?? null,
+                                MediaUrl: mediaUrl
                             },
                             { timeout: 30000 }
                         );

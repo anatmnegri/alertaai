@@ -209,10 +209,31 @@ export default function ChamadoModal({ chamado, onClose }) {
                 padding: '14px', display: 'flex', flexWrap: 'wrap', gap: 12,
                 minHeight: 100,
               }}>
-                {chamado.imagem ? (
-                  <img src={chamado.imagem} alt="anexo"
-                    style={{ width: 120, height: 90, objectFit: 'cover', borderRadius: 8 }}
-                  />
+                {chamado.anexos && chamado.anexos.length > 0 ? (
+                  chamado.anexos.map((url, i) => {
+                    const isVideo = url.endsWith('.mp4');
+                    const fullUrl = `http://localhost:5019${url}`;
+                    return (
+                      <a href={fullUrl} target="_blank" rel="noopener noreferrer" key={i} style={{ display: 'block', textDecoration: 'none' }}>
+                        {isVideo ? (
+                           <div style={{
+                             width: 120, height: 90, borderRadius: 8,
+                             background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                             border: '1px solid #d1d5db', position: 'relative'
+                           }}>
+                             <svg width="32" height="32" viewBox="0 0 24 24" fill="#4B5563">
+                               <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                             </svg>
+                             <span style={{ position: 'absolute', bottom: 4, right: 6, fontSize: 10, fontWeight: 'bold', color: '#4B5563', fontFamily: fn }}>VÍDEO</span>
+                           </div>
+                        ) : (
+                          <img src={fullUrl} alt={`Anexo ${i + 1}`}
+                            style={{ width: 120, height: 90, objectFit: 'cover', borderRadius: 8, border: '1px solid #d1d5db' }}
+                          />
+                        )}
+                      </a>
+                    );
+                  })
                 ) : (
                   <div style={{
                     width: 90, height: 80, borderRadius: 10,
