@@ -106,7 +106,7 @@ export default function ChamadoModal({ chamado, onClose }) {
             <p style={label}>Aberto por</p>
             <div style={{ marginBottom: 20 }}>
               <p style={{ fontFamily: fp, fontSize: 14, fontWeight: 600, color: '#1A1A1A', margin: 0 }}>
-                {chamado.nome}
+                {chamado.nomeContato && chamado.nomeContato !== 'Desconhecido' ? chamado.nomeContato : (chamado.nome ?? 'Desconhecido')}
               </p>
               <p style={{ fontFamily: fn, fontSize: 12, color: '#9CA3AF', margin: '4px 0 0' }}>
                 {chamado.telefone ?? '—'}

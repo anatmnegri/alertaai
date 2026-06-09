@@ -49,6 +49,7 @@ export function mapearOcorrencia(o) {
     aberto: o.aberto ?? true,
     nome: o.telefone,
     telefone: o.telefone,
+    nomeContato: o.nomeContato,
     localizacao,
     endereco: o.endereco ?? null,
     bairro: o.bairro ?? null,

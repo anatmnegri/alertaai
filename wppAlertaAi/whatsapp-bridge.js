@@ -371,6 +371,8 @@ async function connectToWhatsApp() {
                             : `"${text}"`;
                     logger.info(`📩 Processando: ${rotulo}`);
 
+                    const contactName = msg.pushName || "Desconhecido";
+
                     try {
                         const response = await axios.post(
                             API_URL,
@@ -383,6 +385,7 @@ async function connectToWhatsApp() {
                                 TipoMensagem: location?.tipo ?? null,
                                 NomeLocalWhatsapp: location?.nome ?? null,
                                 EnderecoWhatsapp: location?.enderecoWhatsapp ?? null,
+                                NomeContatoWhatsapp: contactName,
                                 MediaUrl: mediaUrl
                             },
                             { timeout: 30000 }

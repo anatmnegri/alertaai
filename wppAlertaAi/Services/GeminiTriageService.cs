@@ -114,9 +114,9 @@ Use exatamente este formato:
 }}
 
 Critérios de severidade:
-- Alta: risco imediato de vida, desabamento, feridos, situação crítica, terremoto forte
-- Media: situação grave mas sem risco imediato de vida
-- Baixa: dano material sem risco à integridade física
+- Alta: Risco iminente à vida, pessoas presas em escombros, vítimas graves, desabamentos recentes, incêndios ativos em áreas residenciais, enchentes com pessoas ilhadas, ou acidentes graves. Requer ação imediata de resgate.
+- Media: Situações graves, mas sem risco de morte iminente. Ex: Danos estruturais (rachaduras) sem risco de desabamento instantâneo, alagamento de vias sem ilhados, queda de árvores sem vítimas (apenas dano patrimonial), acidentes de trânsito sem feridos graves.
+- Baixa: Danos materiais leves, focos de lixo, pedidos de vistoria preventiva, solicitação de informações (ex: abrigos), ou eventos meteorológicos sem danos relatados.
 
 Critérios de categoria (use o valor canônico exato da lista):
 - Deslizamento: queda de terra, morro, encosta, barreira, desmoronamento
