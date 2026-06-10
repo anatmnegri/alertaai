@@ -2,7 +2,10 @@ namespace AlertAi.Models;
 
 public static class SessionStatus
 {
-    public const string Coletando = "coletando";
+    public const string Novo = "novo";
+    public const string AguardandoDescricao = "aguardando_descricao";
+    public const string AguardandoLocalizacao = "aguardando_localizacao";
+    public const string AguardandoMidia = "aguardando_midia";
     public const string Concluida = "concluida";
 }
 
@@ -10,7 +13,9 @@ public class EmergencySession
 {
     public int Id { get; set; }
     public string Telefone { get; set; } = string.Empty;
-    public string Status { get; set; } = SessionStatus.Coletando;
+    public string NomeContatoWhatsapp { get; set; } = "Desconhecido";
+    public string Status { get; set; } = SessionStatus.Novo;
+    public string PassoAtual { get; set; } = SessionStatus.Novo;
     /// <summary>JSON: lista de { "papel": "cidadao"|"sistema", "texto": "..." }</summary>
     public string HistoricoJson { get; set; } = "[]";
     public double? Latitude { get; set; }
@@ -32,6 +37,7 @@ public record ChatMessagePayload(
     string? TipoMensagem = null,
     string? NomeLocalWhatsapp = null,
     string? EnderecoWhatsapp = null,
+    string? NomeContatoWhatsapp = null,
     string? MediaUrl = null);
 
 public record ChatMessageResponse(

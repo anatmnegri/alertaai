@@ -35,9 +35,14 @@ public class EmergencyIntakeService : IEmergencyIntakeService
     {
         var telefone = payload.TelefoneRemetente;
         var sessao = await ObterOuCriarSessaoAsync(telefone, ct);
-        var historico = ConversationHistory.Parse(sessao.HistoricoJson);
 
+        // Atualiza nome do contato se fornecido e for diferente do padrão
+        if (!string.IsNullOrWhiteSpace(payload.NomeContatoWhatsapp) && payload.NomeContatoWhatsapp != "Desconhecido")
+            sessao.NomeContatoWhatsapp = payload.NomeContatoWhatsapp;
+
+        var historico = ConversationHistory.Parse(sessao.HistoricoJson);
         var texto = payload.MensagemTexto?.Trim() ?? string.Empty;
+
         if (!string.IsNullOrWhiteSpace(texto))
             ConversationHistory.AddCidadao(historico, texto);
 
@@ -49,89 +54,92 @@ public class EmergencyIntakeService : IEmergencyIntakeService
                 mediaUrls.Add(payload.MediaUrl);
                 sessao.MediaUrlsJson = System.Text.Json.JsonSerializer.Serialize(mediaUrls);
             }
-            
-            if (string.IsNullOrWhiteSpace(texto) && payload.Latitude == null && payload.Longitude == null)
-            {
-                // Just acknowledge media
-                texto = "(Mídia recebida do usuário)";
-            }
         }
 
         await AtualizarLocalizacaoAsync(sessao, payload, ct);
 
         sessao.HistoricoJson = ConversationHistory.Serialize(historico);
-        sessao.AtualizadoEm = DateTime.UtcNow;
-        await _db.SaveChangesAsync(ct);
+        string respostaBot = "";
+        bool finalizado = false;
+        OccurrenceRegistrationResult? registro = null;
 
-        var forcarRegistro = sessao.TentativasEsclarecimento >= MaxTentativasEsclarecimento;
-
-        var agente = await _intakeAgent.AvaliarAsync(
-            new IntakeContext(
-                telefone,
-                historico.Select(h => (h.Papel, h.Texto)).ToList(),
-                texto,
-                GeoCoordinates.TryValidate(sessao.Latitude, sessao.Longitude, out _, out _),
-                sessao.EnderecoResumo,
-                sessao.TentativasEsclarecimento,
-                forcarRegistro),
-            ct);
-
-        if (!agente.ProntoParaRegistrar)
+        switch (sessao.PassoAtual)
         {
-            sessao.TentativasEsclarecimento++;
-            ConversationHistory.AddSistema(historico, agente.RespostaCidadao);
-            sessao.HistoricoJson = ConversationHistory.Serialize(historico);
-            sessao.AtualizadoEm = DateTime.UtcNow;
-            await _db.SaveChangesAsync(ct);
+            case SessionStatus.Novo:
+                respostaBot = "Olá! Me chamo AlertaAI, sou o assistente da Defesa Civil. Por favor, descreva a ocorrência.";
+                sessao.PassoAtual = SessionStatus.AguardandoDescricao;
+                break;
 
-            return new ChatMessageResponse(agente.RespostaCidadao, false);
+            case SessionStatus.AguardandoDescricao:
+                if (string.IsNullOrWhiteSpace(texto) && sessao.Latitude == null)
+                {
+                    respostaBot = "Por favor, descreva o que está acontecendo.";
+                    break;
+                }
+                respostaBot = "Entendido. Agora, por favor, me envie a sua localização atual (pode ser o PIN do WhatsApp ou digitando o endereço).";
+                sessao.PassoAtual = SessionStatus.AguardandoLocalizacao;
+                break;
+
+            case SessionStatus.AguardandoLocalizacao:
+                if (sessao.Latitude == null && string.IsNullOrWhiteSpace(texto) && string.IsNullOrWhiteSpace(payload.MediaUrl))
+                {
+                    respostaBot = "Preciso que você envie a localização para continuar.";
+                    break;
+                }
+                respostaBot = "Certo. Para finalizar, você pode me enviar fotos ou vídeos do local? Se não puder, basta responder 'não'.";
+                sessao.PassoAtual = SessionStatus.AguardandoMidia;
+                break;
+
+            case SessionStatus.AguardandoMidia:
+                // Finalizar o fluxo
+                var narrativa = ConversationHistory.ConsolidarNarrativaCidadao(historico);
+                if (string.IsNullOrWhiteSpace(narrativa)) narrativa = "Relato não detalhado pelo cidadão";
+
+                var webhook = new WebhookPayload(
+                    sessao.Telefone,
+                    narrativa,
+                    payload.IdMensagemWhatsapp,
+                    sessao.Latitude,
+                    sessao.Longitude,
+                    sessao.OrigemLocalizacao == OrigemLocalizacao.WhatsAppGps ? "location" : null,
+                    null,
+                    null,
+                    sessao.MediaUrlsJson,
+                    sessao.NomeContatoWhatsapp);
+
+                registro = await _registrationService.RegisterAsync(webhook, ct);
+                
+                sessao.Status = SessionStatus.Concluida;
+                sessao.PassoAtual = SessionStatus.Concluida;
+                respostaBot = MontarRespostaRegistro(registro);
+                finalizado = true;
+                break;
         }
 
-        return await RegistrarOcorrenciaAsync(sessao, historico, agente, payload.IdMensagemWhatsapp, ct);
-    }
+        if (!finalizado)
+        {
+            ConversationHistory.AddSistema(historico, respostaBot);
+            sessao.HistoricoJson = ConversationHistory.Serialize(historico);
+        }
 
-    private async Task<ChatMessageResponse> RegistrarOcorrenciaAsync(
-        EmergencySession sessao,
-        List<HistoricoItem> historico,
-        IntakeAgentResult agente,
-        string? idMensagemWhatsapp,
-        CancellationToken ct)
-    {
-        var narrativa = agente.TextoConsolidadoTriagem
-            ?? ConversationHistory.ConsolidarNarrativaCidadao(historico);
-
-        if (string.IsNullOrWhiteSpace(narrativa))
-            narrativa = "Relato não detalhado pelo cidadão";
-
-        var webhook = new WebhookPayload(
-            sessao.Telefone,
-            narrativa,
-            idMensagemWhatsapp,
-            sessao.Latitude,
-            sessao.Longitude,
-            sessao.OrigemLocalizacao == OrigemLocalizacao.WhatsAppGps ? "location" : null,
-            null,
-            null,
-            sessao.MediaUrlsJson);
-
-        var registro = await _registrationService.RegisterAsync(webhook, ct);
-
-        sessao.Status = SessionStatus.Concluida;
         sessao.AtualizadoEm = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
 
-        var resposta = MontarRespostaRegistro(agente, registro);
+        if (finalizado && registro != null)
+        {
+            return new ChatMessageResponse(
+                respostaBot,
+                !registro.IsDuplicate,
+                registro.IsDuplicate,
+                registro.Occurrence?.Id,
+                registro.Triage,
+                null);
+        }
 
-        return new ChatMessageResponse(
-            resposta,
-            !registro.IsDuplicate,
-            registro.IsDuplicate,
-            registro.Occurrence?.Id,
-            registro.Triage,
-            agente.OrientacoesImediatasCidadao);
+        return new ChatMessageResponse(respostaBot, false);
     }
 
-    private static string MontarRespostaRegistro(IntakeAgentResult agente, OccurrenceRegistrationResult registro)
+    private static string MontarRespostaRegistro(OccurrenceRegistrationResult registro)
     {
         if (registro.IsDuplicate)
             return "Esta ocorrência já havia sido registrada. A Defesa Civil já possui seus dados.";
@@ -150,14 +158,6 @@ public class EmergencyIntakeService : IEmergencyIntakeService
             sb.AppendLine($"*Local:* {local}");
         sb.AppendLine($"*Resumo:* {t.resumo}");
         sb.AppendLine();
-
-        if (!string.IsNullOrWhiteSpace(agente.OrientacoesImediatasCidadao))
-        {
-            sb.AppendLine("🆘 *Enquanto a equipe não chega:*");
-            sb.AppendLine(agente.OrientacoesImediatasCidadao);
-            sb.AppendLine();
-        }
-
         sb.AppendLine("Mantenha o celular por perto. Em risco imediato à vida, ligue *193* (Defesa Civil) ou *190*.");
         return sb.ToString().Trim();
     }
@@ -195,7 +195,7 @@ public class EmergencyIntakeService : IEmergencyIntakeService
         var ativa = await _db.EmergencySessions
             .Where(s =>
                 s.Telefone == telefone &&
-                s.Status == SessionStatus.Coletando &&
+                s.Status != SessionStatus.Concluida &&
                 s.AtualizadoEm >= limite)
             .OrderByDescending(s => s.AtualizadoEm)
             .FirstOrDefaultAsync(ct);
@@ -206,7 +206,8 @@ public class EmergencyIntakeService : IEmergencyIntakeService
         var nova = new EmergencySession
         {
             Telefone = telefone,
-            Status = SessionStatus.Coletando,
+            Status = SessionStatus.Novo,
+            PassoAtual = SessionStatus.Novo,
             HistoricoJson = "[]",
             CriadoEm = DateTime.UtcNow,
             AtualizadoEm = DateTime.UtcNow

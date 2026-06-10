@@ -9,7 +9,8 @@ public record WebhookPayload(
     string? TipoMensagem = null,
     string? NomeLocalWhatsapp = null,
     string? EnderecoWhatsapp = null,
-    string? MediaUrlsJson = null);
+    string? MediaUrlsJson = null,
+    string? NomeContatoWhatsapp = null);
 
 // --- DTOs para Evolution API (WhatsApp) ---
 public record EvolutionWebhookPayload(string Event, string Instance, EvolutionMessageData? Data);
@@ -69,6 +70,7 @@ public class Occurrence
     public string Categoria { get; set; } = string.Empty;
     public string Resumo { get; set; } = string.Empty;
     public string AcaoRecomendada { get; set; } = string.Empty;
+    public string NomeContato { get; set; } = "Desconhecido";
     public string? Endereco { get; set; }
     public string? Bairro { get; set; }
     public string? Numero { get; set; }
