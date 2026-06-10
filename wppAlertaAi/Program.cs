@@ -280,4 +280,7 @@ static void AplicarMigracoesDefensivas(AppDbContext db)
     }
     catch { /* tabela já existe */ }
     try { db.Database.ExecuteSqlRaw("ALTER TABLE EmergencySessions ADD COLUMN MediaUrlsJson TEXT DEFAULT '[]'"); } catch { /* coluna já existe */ }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE EmergencySessions ADD COLUMN PassoAtual TEXT DEFAULT 'novo'"); } catch { /* coluna já existe */ }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE EmergencySessions ADD COLUMN NomeContatoWhatsapp TEXT DEFAULT 'Desconhecido'"); } catch { /* coluna já existe */ }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE Occurrences ADD COLUMN NomeContato TEXT DEFAULT 'Desconhecido'"); } catch { /* coluna já existe */ }
 }
