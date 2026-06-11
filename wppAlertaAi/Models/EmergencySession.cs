@@ -38,7 +38,8 @@ public record ChatMessagePayload(
     string? NomeLocalWhatsapp = null,
     string? EnderecoWhatsapp = null,
     string? NomeContatoWhatsapp = null,
-    string? MediaUrl = null);
+    string? MediaUrl = null,
+    string? AudioUrl = null);
 
 public record ChatMessageResponse(
     string RespostaBot,

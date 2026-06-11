@@ -5,7 +5,7 @@ const pino = require('pino');
 const QRCode = require('qrcode-terminal');
 const fs = require('fs');
 const path = require('path');
-const { extractMessageText, extractLocationFromMessage, hasMedia, unwrapMessage } = require('./bridge/message-parsers');
+const { extractMessageText, extractLocationFromMessage, hasMedia, hasAudio, extractAudioInfo, unwrapMessage } = require('./bridge/message-parsers');
 
 // ===== CONFIGURAÇÃO =====
 const API_URL = process.env.API_URL || 'http://localhost:5019/api/chat';
@@ -335,9 +335,10 @@ async function connectToWhatsApp() {
                     const text = extractMessageText(msg.message);
                     const location = extractLocationFromMessage(msg.message);
                     const isMedia = hasMedia(msg.message);
+                    const isAudio = hasAudio(msg.message);
 
-                    if (!text && !location && !isMedia) {
-                        logger.debug(`Sem texto, localização nem mídia (chaves: ${Object.keys(msg.message).join(', ')})`);
+                    if (!text && !location && !isMedia && !isAudio) {
+                        logger.debug(`Sem texto, localização, mídia nem áudio (chaves: ${Object.keys(msg.message).join(', ')})`);
                         continue;
                     }
 
@@ -364,11 +365,37 @@ async function connectToWhatsApp() {
                         }
                     }
 
+                    let audioUrl = null;
+                    if (isAudio) {
+                        try {
+                            const buffer = await downloadMediaMessage(
+                                msg,
+                                'buffer',
+                                { },
+                                { logger, reuploadRequest: sock.updateMediaMessage }
+                            );
+
+                            const audioInfo = extractAudioInfo(msg.message);
+                            // PTT/ogg do WhatsApp → .ogg; outros → .mp3
+                            const extension = (audioInfo?.mimetype ?? '').includes('ogg') ? 'ogg' : 'mp3';
+                            const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${extension}`;
+                            const filePath = path.join(MEDIA_DIR, fileName);
+
+                            fs.writeFileSync(filePath, buffer);
+                            audioUrl = `/media/${fileName}`;
+                            logger.info(`🎤 Áudio salvo: ${audioUrl} (${audioInfo?.isPtt ? 'PTT' : 'arquivo'})`);
+                        } catch (audioErr) {
+                            logger.error(`❌ Erro ao baixar áudio: ${audioErr.message}`);
+                        }
+                    }
+
                     const rotulo = location
                         ? `localização GPS (${location.tipo})${text ? ` + texto` : ''}`
-                        : isMedia
-                            ? `mídia (${mediaUrl})${text ? ` + texto` : ''}`
-                            : `"${text}"`;
+                        : isAudio
+                            ? `áudio (${audioUrl})${text ? ` + texto` : ''}`
+                            : isMedia
+                                ? `mídia (${mediaUrl})${text ? ` + texto` : ''}`
+                                : `"${text}"`;
                     logger.info(`📩 Processando: ${rotulo}`);
 
                     const contactName = msg.pushName || "Desconhecido";
@@ -386,7 +413,8 @@ async function connectToWhatsApp() {
                                 NomeLocalWhatsapp: location?.nome ?? null,
                                 EnderecoWhatsapp: location?.enderecoWhatsapp ?? null,
                                 NomeContatoWhatsapp: contactName,
-                                MediaUrl: mediaUrl
+                                MediaUrl: mediaUrl,
+                                AudioUrl: audioUrl
                             },
                             { timeout: 30000 }
                         );

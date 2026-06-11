@@ -98,9 +98,38 @@ function hasMedia(message) {
     return Boolean(inner.imageMessage || inner.videoMessage);
 }
 
+/**
+ * Verifica se a mensagem contém um áudio (gravação de voz PTT ou arquivo de áudio).
+ */
+function hasAudio(message) {
+    const inner = unwrapMessage(message);
+    if (!inner) return false;
+
+    return Boolean(inner.audioMessage || inner.pttMessage);
+}
+
+/**
+ * Extrai informações do bloco de áudio da mensagem.
+ * @returns {{ mimetype: string, isPtt: boolean } | null}
+ */
+function extractAudioInfo(message) {
+    const inner = unwrapMessage(message);
+    if (!inner) return null;
+
+    const audioBlock = inner.audioMessage ?? inner.pttMessage ?? null;
+    if (!audioBlock) return null;
+
+    const isPtt = inner.pttMessage != null || audioBlock.ptt === true;
+    const mimetype = audioBlock.mimetype ?? 'audio/ogg; codecs=opus';
+
+    return { mimetype, isPtt };
+}
+
 module.exports = {
     extractMessageText,
     extractLocationFromMessage,
     hasMedia,
+    hasAudio,
+    extractAudioInfo,
     unwrapMessage
 };
