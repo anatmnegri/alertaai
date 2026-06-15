@@ -52,31 +52,24 @@ public class EmergencyIntakeService : IEmergencyIntakeService
         var historico = ConversationHistory.Parse(sessao.HistoricoJson);
         var texto = payload.MensagemTexto?.Trim() ?? string.Empty;
 
-        // ── Transcrição de áudio ──────────────────────────────────────────
-        if (!string.IsNullOrWhiteSpace(payload.AudioUrl))
+        if ((sessao.PassoAtual == SessionStatus.Novo || sessao.PassoAtual == SessionStatus.AguardandoDescricao) 
+            && string.IsNullOrWhiteSpace(texto) 
+            && !string.IsNullOrWhiteSpace(payload.MediaUrl) 
+            && (payload.MediaUrl.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase) || payload.MediaUrl.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)))
         {
-            var audioFilePath = Path.Combine(_webRootPath, payload.AudioUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
-            _logger.LogInformation("🎤 Áudio recebido, transcrevendo: {Path}", audioFilePath);
-
-            var transcricao = await _audioTranscription.TranscreverAsync(audioFilePath, ct);
-
-            if (!string.IsNullOrWhiteSpace(transcricao) &&
-                !transcricao.Contains("[áudio sem conteúdo identificável]", StringComparison.OrdinalIgnoreCase))
+            try
             {
-                _logger.LogInformation("🎤 Transcrição: \"{Texto}\"", transcricao);
-                // Prefixar para deixar claro no histórico que veio de áudio
-                texto = string.IsNullOrWhiteSpace(texto)
-                    ? transcricao
-                    : $"{texto} {transcricao}";
+                var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", payload.MediaUrl.TrimStart('/', '\\'));
+                var transcricao = await _intakeAgent.TranscreverAudioAsync(filePath, ct);
+                texto = $"[Áudio Transcrito] {transcricao}";
+                _logger.LogInformation("Áudio transcrito com sucesso: {Texto}", transcricao);
             }
-            else
+            catch (Exception ex)
             {
-                _logger.LogWarning("🎤 Não foi possível transcrever o áudio ou conteúdo vazio.");
-                if (string.IsNullOrWhiteSpace(texto))
-                    texto = "(Áudio recebido — não foi possível transcrever)";
+                _logger.LogError(ex, "Erro ao transcrever áudio");
             }
         }
-        // ─────────────────────────────────────────────────────────────────
+
         if (!string.IsNullOrWhiteSpace(texto))
             ConversationHistory.AddCidadao(historico, texto);
 
