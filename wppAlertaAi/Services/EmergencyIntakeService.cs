@@ -52,10 +52,24 @@ public class EmergencyIntakeService : IEmergencyIntakeService
         var historico = ConversationHistory.Parse(sessao.HistoricoJson);
         var texto = payload.MensagemTexto?.Trim() ?? string.Empty;
 
-        // ── Transcrição de áudio ──────────────────────────────────────────
-        if (!string.IsNullOrWhiteSpace(payload.AudioUrl))
+        var audioPath = payload.AudioUrl;
+        if (string.IsNullOrWhiteSpace(audioPath)
+            && !string.IsNullOrWhiteSpace(payload.MediaUrl)
+            && (payload.MediaUrl.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase)
+                || payload.MediaUrl.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)
+                || payload.MediaUrl.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase)
+                || payload.MediaUrl.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)))
         {
-            var audioFilePath = Path.Combine(_webRootPath, payload.AudioUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+            audioPath = payload.MediaUrl;
+        }
+
+        // ── Transcrição de áudio ──────────────────────────────────────────
+        if (!string.IsNullOrWhiteSpace(audioPath))
+        {
+            var webRoot = string.IsNullOrWhiteSpace(_webRootPath)
+                ? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")
+                : _webRootPath;
+            var audioFilePath = Path.Combine(webRoot, audioPath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
             _logger.LogInformation("🎤 Áudio recebido, transcrevendo: {Path}", audioFilePath);
 
             var transcricao = await _audioTranscription.TranscreverAsync(audioFilePath, ct);
