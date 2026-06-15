@@ -48,6 +48,58 @@ public class GeminiEmergencyIntakeAgent : IEmergencyIntakeAgent
         return "Outros";
     }
 
+    public async Task<string> TranscreverAudioAsync(string filePath, CancellationToken ct = default)
+    {
+        var prompt = "Transcreva o relato de ocorrência que o cidadão falou neste áudio com precisão. Retorne apenas o texto transcrito, sem comentários adicionais.";
+        var base64Data = Convert.ToBase64String(await File.ReadAllBytesAsync(filePath, ct));
+        var mimeType = filePath.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) ? "audio/mp3" :
+                       filePath.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) ? "video/mp4" : "audio/ogg";
+
+        foreach (var modelId in ObterModelos())
+        {
+            try
+            {
+                var requestBody = new
+                {
+                    contents = new[]
+                    {
+                        new
+                        {
+                            parts = new object[]
+                            {
+                                new { text = prompt },
+                                new { inlineData = new { mimeType = mimeType, data = base64Data } }
+                            }
+                        }
+                    },
+                    generationConfig = new { responseMimeType = "text/plain", temperature = 0.3 }
+                };
+
+                var url = $"https://generativelanguage.googleapis.com/v1beta/models/{modelId}:generateContent?key={_settings.ApiKey}";
+                using var response = await _httpClient.PostAsJsonAsync(url, requestBody, ct);
+                var body = await response.Content.ReadAsStringAsync(ct);
+
+                if (!response.IsSuccessStatusCode)
+                    throw new HttpRequestException($"Gemini {(int)response.StatusCode}", null, response.StatusCode);
+
+                using var doc = JsonDocument.Parse(body);
+                var text = ExtrairTexto(doc.RootElement);
+                if (!string.IsNullOrWhiteSpace(text))
+                    return text.Trim();
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.BadRequest)
+            {
+                _logger.LogWarning("Modelo intake {ModelId} indisponível para áudio: {Msg}", modelId, ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Falha na transcrição de áudio com {ModelId}", modelId);
+            }
+        }
+
+        throw new InvalidOperationException("Falha ao transcrever áudio com todos os modelos suportados.");
+    }
+
     private IEnumerable<string> ObterModelos()
     {
         var preferido = string.IsNullOrWhiteSpace(_settings.ModelId)

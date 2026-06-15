@@ -47,3 +47,30 @@ export function getDadosPrioridade(chamados) {
     value: Math.round(chamados.filter(c => c.status === _match).length / total * 100),
   }))
 }
+
+export function getDadosChamadosMensais(chamados) {
+  const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  
+  // Acha o mês atual e pega os últimos 7 meses
+  const hoje = new Date();
+  const ultimosMeses = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    ultimosMeses.push(meses[d.getMonth()]);
+  }
+
+  const map = {};
+  ultimosMeses.forEach(m => map[m] = 0);
+
+  chamados.forEach(c => {
+    const d = new Date(c.dataISO);
+    if (!isNaN(d.getTime())) {
+      const nomeMes = meses[d.getMonth()];
+      if (map[nomeMes] !== undefined) {
+        map[nomeMes] += 1;
+      }
+    }
+  });
+
+  return ultimosMeses.map(m => ({ mes: m, quantidade: map[m] }));
+}

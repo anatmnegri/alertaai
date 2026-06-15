@@ -353,7 +353,7 @@ async function connectToWhatsApp() {
                             );
                             
                             const innerMsg = unwrapMessage(msg.message);
-                            const extension = innerMsg.imageMessage ? 'jpg' : (innerMsg.videoMessage ? 'mp4' : 'bin');
+                            const extension = innerMsg.imageMessage ? 'jpg' : (innerMsg.videoMessage ? 'mp4' : (innerMsg.audioMessage ? 'ogg' : 'bin'));
                             const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${extension}`;
                             const filePath = path.join(MEDIA_DIR, fileName);
                             

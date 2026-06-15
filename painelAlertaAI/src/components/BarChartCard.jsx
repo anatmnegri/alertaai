@@ -8,7 +8,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts'
-import { dadosChamadosMensais } from '../data/mockData'
+import { getDadosChamadosMensais } from '../services/chamadosService'
 
 const font = "'Poppins', sans-serif"
 
@@ -34,7 +34,9 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null
 }
 
-export default function BarChartCard() {
+export default function BarChartCard({ chamados = [] }) {
+  const dadosChamadosMensais = getDadosChamadosMensais(chamados)
+
   return (
     <div
       style={{
@@ -78,8 +80,7 @@ export default function BarChartCard() {
               axisLine={false}
               tickLine={false}
               tick={{ fontSize: 10, fill: '#000', fontFamily: font, opacity: 0.4 }}
-              ticks={[0, 50, 100, 150, 200, 250]}
-              domain={[0, 250]}
+              allowDecimals={false}
             />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
             <Bar dataKey="quantidade" radius={[71, 71, 71, 71]}>

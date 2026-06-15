@@ -54,8 +54,8 @@ function App() {
               onChamadoSelect={setChamadoSelecionado}
             />
             <div className="flex gap-5">
-              <BarChartCard />
-              <PieChartCard chamados={chamados} />
+              <BarChartCard chamados={chamados.filter(c => c.aberto)} />
+              <PieChartCard chamados={chamados.filter(c => c.aberto)} />
             </div>
             <ChamadosTable chamados={chamados} onVerTudo={() => setActivePage('Chamados')} />
           </div>

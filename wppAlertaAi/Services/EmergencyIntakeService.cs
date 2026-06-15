@@ -63,7 +63,6 @@ public class EmergencyIntakeService : IEmergencyIntakeService
             audioPath = payload.MediaUrl;
         }
 
-        // ── Transcrição de áudio ──────────────────────────────────────────
         if (!string.IsNullOrWhiteSpace(audioPath))
         {
             var webRoot = string.IsNullOrWhiteSpace(_webRootPath)
@@ -78,7 +77,6 @@ public class EmergencyIntakeService : IEmergencyIntakeService
                 !transcricao.Contains("[áudio sem conteúdo identificável]", StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogInformation("🎤 Transcrição: \"{Texto}\"", transcricao);
-                // Prefixar para deixar claro no histórico que veio de áudio
                 texto = string.IsNullOrWhiteSpace(texto)
                     ? transcricao
                     : $"{texto} {transcricao}";
@@ -90,7 +88,7 @@ public class EmergencyIntakeService : IEmergencyIntakeService
                     texto = "(Áudio recebido — não foi possível transcrever)";
             }
         }
-        // ─────────────────────────────────────────────────────────────────
+
         if (!string.IsNullOrWhiteSpace(texto))
             ConversationHistory.AddCidadao(historico, texto);
 
