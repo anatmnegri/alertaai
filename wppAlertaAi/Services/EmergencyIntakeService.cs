@@ -43,6 +43,24 @@ public class EmergencyIntakeService : IEmergencyIntakeService
         var historico = ConversationHistory.Parse(sessao.HistoricoJson);
         var texto = payload.MensagemTexto?.Trim() ?? string.Empty;
 
+        if ((sessao.PassoAtual == SessionStatus.Novo || sessao.PassoAtual == SessionStatus.AguardandoDescricao) 
+            && string.IsNullOrWhiteSpace(texto) 
+            && !string.IsNullOrWhiteSpace(payload.MediaUrl) 
+            && (payload.MediaUrl.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase) || payload.MediaUrl.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)))
+        {
+            try
+            {
+                var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", payload.MediaUrl.TrimStart('/', '\\'));
+                var transcricao = await _intakeAgent.TranscreverAudioAsync(filePath, ct);
+                texto = $"[Áudio Transcrito] {transcricao}";
+                _logger.LogInformation("Áudio transcrito com sucesso: {Texto}", transcricao);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao transcrever áudio");
+            }
+        }
+
         if (!string.IsNullOrWhiteSpace(texto))
             ConversationHistory.AddCidadao(historico, texto);
 
