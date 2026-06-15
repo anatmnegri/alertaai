@@ -48,7 +48,7 @@ Testar a capacidade da IA de distinguir a gravidade das ocorrências.
 - **Ação:** Enviar a mesma mensagem repetidas vezes em um curto espaço de tempo (menos de 2 minutos).
 - **Resultado Esperado:** O backend do C# possui uma trava de **deduplicação (janela de 2 minutos)**. O sistema deve registrar apenas a primeira ocorrência no painel e marcar as requisições subsequentes como duplicatas, evitando poluir o mapa.
 
-### 2.6. Teste de Suporte a Mídias (Imagens/Vídeos e áudios)
+### 2.6. Teste de Suporte a Mídias (Imagens/Vídeos e Áudios)
 - **Ação:** Envie um áudio explicando a situação. Envie uma foto ou vídeo mostrando uma emergência (com ou sem legenda).
 - **Resultado Esperado:** A bridge (Node.js) já está programada para fazer o **download automático da mídia**, salvando no diretório `wwwroot/media`. O card no painel deve ser capaz de exibir a transcrição e o anexo (ou o link da mídia) relacionado à ocorrência, enriquecendo o alerta.
 
