@@ -2,6 +2,8 @@ using AlertAi.Data;
 using AlertAi.Models;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace AlertAi.Services;
 
@@ -92,17 +94,17 @@ public class EmergencyIntakeService : IEmergencyIntakeService
         if (!string.IsNullOrWhiteSpace(texto))
             ConversationHistory.AddCidadao(historico, texto);
 
-        if (!string.IsNullOrWhiteSpace(payload.MediaUrl))
-        {
-            var mediaUrls = System.Text.Json.JsonSerializer.Deserialize<List<string>>(sessao.MediaUrlsJson) ?? new();
-            if (mediaUrls.Count < 3)
-            {
-                mediaUrls.Add(payload.MediaUrl);
-                sessao.MediaUrlsJson = System.Text.Json.JsonSerializer.Serialize(mediaUrls);
-            }
-        }
+        AdicionarMediaSessao(sessao, payload.MediaUrl);
+        AdicionarMediaSessao(sessao, payload.AudioUrl);
 
         await AtualizarLocalizacaoAsync(sessao, payload, ct);
+
+        var recebeuTexto = !string.IsNullOrWhiteSpace(texto);
+        if (recebeuTexto && sessao.Latitude is null && PareceLocalizacaoTextual(texto))
+        {
+            sessao.EnderecoResumo = texto;
+            sessao.OrigemLocalizacao = OrigemLocalizacao.GeocodeTexto;
+        }
 
         sessao.HistoricoJson = ConversationHistory.Serialize(historico);
         string respostaBot = "";
@@ -112,27 +114,59 @@ public class EmergencyIntakeService : IEmergencyIntakeService
         switch (sessao.PassoAtual)
         {
             case SessionStatus.Novo:
-                respostaBot = "Olá! Me chamo AlertaAI, sou o assistente da Defesa Civil. Por favor, descreva a ocorrência.";
-                sessao.PassoAtual = SessionStatus.AguardandoDescricao;
+                if (!recebeuTexto)
+                {
+                    respostaBot = sessao.Latitude is not null
+                        ? "Recebi sua localização. Agora me diga o que está acontecendo no local."
+                        : "Olá! Me chamo AlertaAI, sou o assistente da Defesa Civil. Por favor, descreva a ocorrência.";
+                    sessao.PassoAtual = SessionStatus.AguardandoDescricao;
+                    break;
+                }
+
+                if (!PareceDescricaoOcorrencia(texto))
+                {
+                    respostaBot = "Olá! Para abrir o chamado, me diga o que está acontecendo: alagamento, deslizamento, incêndio, acidente ou outro risco.";
+                    sessao.PassoAtual = SessionStatus.AguardandoDescricao;
+                    break;
+                }
+
+                if (!TemLocalizacao(sessao))
+                {
+                    respostaBot = "Entendi. Agora preciso da localização exata. Envie o PIN do WhatsApp ou digite rua/avenida, número ou ponto de referência e bairro.";
+                    sessao.PassoAtual = SessionStatus.AguardandoLocalizacao;
+                    break;
+                }
+
+                respostaBot = "Recebi a descrição e a localização. Para finalizar, envie fotos, vídeos ou áudio do local. Se não tiver, responda \"não\".";
+                sessao.PassoAtual = SessionStatus.AguardandoMidia;
                 break;
 
             case SessionStatus.AguardandoDescricao:
-                if (string.IsNullOrWhiteSpace(texto) && sessao.Latitude == null)
+                if (!recebeuTexto || !PareceDescricaoOcorrencia(texto))
                 {
-                    respostaBot = "Por favor, descreva o que está acontecendo.";
+                    respostaBot = "Por favor, descreva o que está acontecendo e se há pessoas em risco.";
                     break;
                 }
-                respostaBot = "Entendido. Agora, por favor, me envie a sua localização atual (pode ser o PIN do WhatsApp ou digitando o endereço).";
+
+                if (TemLocalizacao(sessao))
+                {
+                    respostaBot = "Certo. Para finalizar, envie fotos, vídeos ou áudio do local. Se não tiver, responda \"não\".";
+                    sessao.PassoAtual = SessionStatus.AguardandoMidia;
+                    break;
+                }
+
+                respostaBot = "Entendido. Agora preciso da localização exata. Envie o PIN do WhatsApp ou digite rua/avenida, número ou ponto de referência e bairro.";
                 sessao.PassoAtual = SessionStatus.AguardandoLocalizacao;
                 break;
 
             case SessionStatus.AguardandoLocalizacao:
-                if (sessao.Latitude == null && string.IsNullOrWhiteSpace(texto) && string.IsNullOrWhiteSpace(payload.MediaUrl))
+                if (!TemLocalizacao(sessao))
                 {
-                    respostaBot = "Preciso que você envie a localização para continuar.";
+                    respostaBot = "Ainda preciso da localização para continuar. Pode enviar o PIN do WhatsApp ou escrever algo como: \"Rua das Flores, 120, Boa Viagem\".";
                     break;
                 }
-                respostaBot = "Certo. Para finalizar, você pode me enviar fotos ou vídeos do local? Se não puder, basta responder 'não'.";
+
+                respostaBot = "Certo. Para finalizar, envie fotos, vídeos ou áudio do local. Se não tiver, responda \"não\".";
                 sessao.PassoAtual = SessionStatus.AguardandoMidia;
                 break;
 
@@ -183,6 +217,96 @@ public class EmergencyIntakeService : IEmergencyIntakeService
         }
 
         return new ChatMessageResponse(respostaBot, false);
+    }
+
+    private static bool TemLocalizacao(EmergencySession sessao) =>
+        (sessao.Latitude is not null && sessao.Longitude is not null) ||
+        !string.IsNullOrWhiteSpace(sessao.EnderecoResumo);
+
+    private static bool PareceDescricaoOcorrencia(string? texto)
+    {
+        if (string.IsNullOrWhiteSpace(texto))
+            return false;
+
+        var t = NormalizarTexto(texto);
+        if (t.Length < 4)
+            return false;
+
+        string[] termosOcorrencia =
+        [
+            "alag", "enchent", "inund", "desliz", "barreira", "morro", "encosta",
+            "incend", "fogo", "fumaca", "acident", "batida", "colis", "desab",
+            "rachadura", "risco", "ferid", "pres", "soterr", "queda", "arvore",
+            "temporal", "vento", "vendaval", "tremor"
+        ];
+
+        return termosOcorrencia.Any(term => t.Contains(term, StringComparison.Ordinal)) ||
+               t.Length >= 25;
+    }
+
+    private static bool PareceLocalizacaoTextual(string? texto)
+    {
+        if (string.IsNullOrWhiteSpace(texto))
+            return false;
+
+        var t = NormalizarTexto(texto);
+        if (t is "nao" or "nao sei" or "sem localizacao" or "sem endereco")
+            return false;
+
+        string[] termosEndereco =
+        [
+            "rua", "avenida", "av ", "travessa", "estrada", "rodovia", "beco",
+            "praca", "largo", "alto", "bairro", "numero", "n ", "proximo",
+            "perto", "em frente", "ao lado", "referencia", "comunidade"
+        ];
+
+        return t.Length >= 8 &&
+               (termosEndereco.Any(term => t.Contains(term, StringComparison.Ordinal)) ||
+                Regex.IsMatch(t, @"\d{2,}"));
+    }
+
+    private static string NormalizarTexto(string texto)
+    {
+        var normalized = texto.Trim().ToLowerInvariant()
+            .Normalize(System.Text.NormalizationForm.FormD);
+
+        var chars = normalized
+            .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c)
+                != System.Globalization.UnicodeCategory.NonSpacingMark)
+            .ToArray();
+
+        return new string(chars).Normalize(System.Text.NormalizationForm.FormC);
+    }
+
+    private static void AdicionarMediaSessao(EmergencySession sessao, string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return;
+
+        var mediaUrls = ParseMediaUrls(sessao.MediaUrlsJson);
+        if (mediaUrls.Contains(url))
+            return;
+
+        if (mediaUrls.Count >= 5)
+            return;
+
+        mediaUrls.Add(url);
+        sessao.MediaUrlsJson = JsonSerializer.Serialize(mediaUrls);
+    }
+
+    private static List<string> ParseMediaUrls(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return [];
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json) ?? [];
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     private static string MontarRespostaRegistro(OccurrenceRegistrationResult registro)

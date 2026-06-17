@@ -41,6 +41,17 @@ function formatarData(isoString) {
   return `${dia} ${mesCapital} ${ano}, ${hh}h${mm}`
 }
 
+function parseAnexos(mediaUrlsJson) {
+  if (!mediaUrlsJson) return []
+
+  try {
+    const anexos = JSON.parse(mediaUrlsJson)
+    return Array.isArray(anexos) ? anexos.filter(Boolean) : []
+  } catch {
+    return []
+  }
+}
+
 export function mapearOcorrencia(o) {
   const localizacao = formatarLocalizacao(o)
 
@@ -69,7 +80,7 @@ export function mapearOcorrencia(o) {
     acaoRecomendada: o.acaoRecomendada,
     mensagemOriginal: o.mensagemOriginal,
     imagem: null,
-    anexos: o.mediaUrlsJson ? JSON.parse(o.mediaUrlsJson) : [],
+    anexos: parseAnexos(o.mediaUrlsJson),
   }
 }
 

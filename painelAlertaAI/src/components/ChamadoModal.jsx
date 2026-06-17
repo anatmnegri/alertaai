@@ -30,7 +30,6 @@ export default function ChamadoModal({ chamado, onClose }) {
   if (!chamado) return null
 
   const tipoCor = TIPO_COR[chamado.tipo] ?? { bg: 'rgba(0,0,0,0.08)', color: '#555' }
-  const inicial = chamado.nome?.charAt(0).toUpperCase() ?? '?'
 
   return (
     <div
@@ -211,7 +210,8 @@ export default function ChamadoModal({ chamado, onClose }) {
               }}>
                 {chamado.anexos && chamado.anexos.length > 0 ? (
                   chamado.anexos.map((url, i) => {
-                    const isVideo = url.endsWith('.mp4');
+                    const isVideo = /\.(mp4|webm|mov)$/i.test(url);
+                    const isAudio = /\.(ogg|oga|mp3|m4a|wav|aac|webm)$/i.test(url) && !isVideo;
                     const fullUrl = `http://localhost:5019${url}`;
                     return (
                       <a href={fullUrl} target="_blank" rel="noopener noreferrer" key={i} style={{ display: 'block', textDecoration: 'none' }}>
@@ -226,6 +226,18 @@ export default function ChamadoModal({ chamado, onClose }) {
                              </svg>
                              <span style={{ position: 'absolute', bottom: 4, right: 6, fontSize: 10, fontWeight: 'bold', color: '#4B5563', fontFamily: fn }}>VÍDEO</span>
                            </div>
+                        ) : isAudio ? (
+                          <div style={{
+                            width: 190, minHeight: 76, borderRadius: 8,
+                            background: '#fff', border: '1px solid #d1d5db',
+                            padding: 10, display: 'flex', flexDirection: 'column', gap: 8,
+                            justifyContent: 'center',
+                          }}>
+                            <span style={{ fontFamily: fn, fontSize: 11, fontWeight: 700, color: '#4B5563' }}>
+                              Áudio {i + 1}
+                            </span>
+                            <audio controls src={fullUrl} style={{ width: '100%', height: 32 }} />
+                          </div>
                         ) : (
                           <img src={fullUrl} alt={`Anexo ${i + 1}`}
                             style={{ width: 120, height: 90, objectFit: 'cover', borderRadius: 8, border: '1px solid #d1d5db' }}
