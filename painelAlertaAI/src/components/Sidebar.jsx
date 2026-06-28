@@ -22,7 +22,7 @@ const chatItems = [
 ]
 
 const ITEM_H    = 57
-const HABILITADO = ['Dashboard', 'Chamados']
+const HABILITADO = ['Dashboard', 'Chamados', 'Previsões da APAC']
 
 export default function Sidebar({ active = 'Dashboard', onNavigate }) {
   return (

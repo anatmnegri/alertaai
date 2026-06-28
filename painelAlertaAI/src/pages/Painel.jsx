@@ -7,6 +7,7 @@ import PieChartCard  from '../components/PieChartCard'
 import ChamadosTable from '../components/ChamadosTable'
 import RightPanel    from '../components/RightPanel'
 import ChamadosPage  from './ChamadosPage'
+import PrevisoesApacPage from './PrevisoesApacPage'
 import ChamadoModal  from '../components/ChamadoModal'
 import { fetchOcorrencias, mapearOcorrencia } from '../services/api'
 import * as signalR from '@microsoft/signalr'
@@ -61,6 +62,8 @@ export default function Painel() {
         )}
 
         {activePage === 'Chamados' && <ChamadosPage chamados={chamados} onChamadosChange={setChamados} />}
+
+        {activePage === 'Previsões da APAC' && <PrevisoesApacPage />}
       </main>
 
       <RightPanel />

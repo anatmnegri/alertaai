@@ -3,7 +3,7 @@ import { useNavigate, useLocation, Link, Navigate } from 'react-router-dom'
 import AuthShell from '../components/auth/AuthShell'
 import { TextField, SubmitButton, Alert } from '../components/auth/Field'
 import { useAuth } from '../context/AuthContext'
-import { emailValido, DEFAULT_ADMIN } from '../services/authService'
+import { emailValido } from '../services/authService'
 
 export default function LoginPage() {
   const { login, autenticado } = useAuth()
@@ -40,7 +40,6 @@ export default function LoginPage() {
   return (
     <AuthShell
       titulo="Acesso ao Painel"
-      subtitulo="Defesa Civil do Recife — área restrita do administrador"
       footer={
         <Link to="/esqueci-senha" style={{ color: '#00936C', fontWeight: 600, textDecoration: 'none' }}>
           Esqueci minha senha
@@ -70,12 +69,6 @@ export default function LoginPage() {
 
         <SubmitButton>Entrar</SubmitButton>
       </form>
-
-      {/* Dica apenas para a demonstração acadêmica */}
-      <p style={{ marginTop: 18, fontSize: 11.5, color: '#9CA3AF', textAlign: 'center', lineHeight: 1.6 }}>
-        Demo — administrador padrão:<br />
-        <strong>{DEFAULT_ADMIN.email}</strong> / <strong>{DEFAULT_ADMIN.senha}</strong>
-      </p>
     </AuthShell>
   )
 }
