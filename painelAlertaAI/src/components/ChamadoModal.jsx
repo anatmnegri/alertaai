@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { X, MessageCircle } from 'lucide-react'
 import Badge from './ui/Badge'
+import PanoramaAPAC from './PanoramaAPAC'
 
 const fp = "'Poppins', sans-serif"
 const fn = "'Nunito Sans', sans-serif"
@@ -30,7 +31,6 @@ export default function ChamadoModal({ chamado, onClose }) {
   if (!chamado) return null
 
   const tipoCor = TIPO_COR[chamado.tipo] ?? { bg: 'rgba(0,0,0,0.08)', color: '#555' }
-  const inicial = chamado.nome?.charAt(0).toUpperCase() ?? '?'
 
   return (
     <div
@@ -252,6 +252,11 @@ export default function ChamadoModal({ chamado, onClose }) {
             </div>
 
           </div>
+        </div>
+
+        {/* ── Panorama Climático Instantâneo da APAC ─────────────────────── */}
+        <div style={{ marginTop: 24 }}>
+          <PanoramaAPAC lat={chamado.lat} lng={chamado.lng} />
         </div>
       </div>
 

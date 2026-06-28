@@ -1,78 +1,40 @@
-import { useState, useRef, useEffect } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import './App.css'
-import Sidebar    from './components/Sidebar'
-import Header     from './components/Header'
-import MapCard    from './components/MapCard'
-import BarChartCard  from './components/BarChartCard'
-import PieChartCard  from './components/PieChartCard'
-import ChamadosTable from './components/ChamadosTable'
-import RightPanel    from './components/RightPanel'
-import ChamadosPage  from './pages/ChamadosPage'
-import ChamadoModal  from './components/ChamadoModal'
-import { fetchOcorrencias, mapearOcorrencia } from './services/api'
-import * as signalR from '@microsoft/signalr'
+import ProtectedRoute from './components/ProtectedRoute'
+import Painel from './pages/Painel'
+import LoginPage from './pages/LoginPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
+import ChangePasswordPage from './pages/ChangePasswordPage'
 
 function App() {
-  const [activePage, setActivePage] = useState('Dashboard')
-  const [chamados, setChamados] = useState([])
-  const [chamadoSelecionado, setChamadoSelecionado] = useState(null)
-  const mainRef = useRef(null)
-
-  useEffect(() => {
-    fetchOcorrencias()
-      .then(setChamados)
-      .catch(err => console.error('Erro ao carregar ocorrências:', err))
-
-    const connection = new signalR.HubConnectionBuilder()
-      .withUrl('http://localhost:5019/hubs/emergency')
-      .withAutomaticReconnect()
-      .build()
-
-    connection.on('NewOccurrence', (ocorrencia) => {
-      setChamados(prev => [mapearOcorrencia(ocorrencia), ...prev])
-    })
-
-    connection.start().catch(err => console.error('SignalR erro:', err))
-
-    return () => connection.stop()
-  }, [])
-
-  useEffect(() => {
-    if (mainRef.current) mainRef.current.scrollTop = 0
-  }, [activePage])
-
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#f0f2f5]">
-      <Sidebar active={activePage} onNavigate={setActivePage} />
+    <Routes>
+      {/* Rotas públicas (autenticação) */}
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
+      <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
 
-      <main ref={mainRef} className="flex-1 overflow-y-auto">
-        {activePage === 'Dashboard' && (
-          <div style={{ padding: '40px', display: 'flex', flexDirection: 'column', gap: 20, minHeight: '100%' }}>
-            <Header />
-            <MapCard
-              chamados={chamados}
-              onChamadoSelect={setChamadoSelecionado}
-            />
-            <div className="flex gap-5">
-              <BarChartCard chamados={chamados.filter(c => c.aberto)} />
-              <PieChartCard chamados={chamados.filter(c => c.aberto)} />
-            </div>
-            <ChamadosTable chamados={chamados} onVerTudo={() => setActivePage('Chamados')} />
-          </div>
-        )}
+      {/* Rotas protegidas (painel da Defesa Civil) */}
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Painel />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/alterar-senha"
+        element={
+          <ProtectedRoute>
+            <ChangePasswordPage />
+          </ProtectedRoute>
+        }
+      />
 
-        {activePage === 'Chamados' && <ChamadosPage chamados={chamados} onChamadosChange={setChamados} />}
-      </main>
-
-      <RightPanel />
-
-      {chamadoSelecionado && (
-        <ChamadoModal
-          chamado={chamadoSelecionado}
-          onClose={() => setChamadoSelecionado(null)}
-        />
-      )}
-    </div>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
 
