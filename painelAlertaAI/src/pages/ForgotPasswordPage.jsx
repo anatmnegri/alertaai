@@ -8,20 +8,18 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [erro, setErro] = useState('')
   const [enviado, setEnviado] = useState(false)
-  const [linkDemo, setLinkDemo] = useState(null)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setErro('')
 
-    const res = solicitarRecuperacao(email)
+    const res = await solicitarRecuperacao(email)
     if (!res.ok) {
       setErro(res.erro)
       return
     }
     // Mensagem genérica: não revela se o e-mail está cadastrado.
     setEnviado(true)
-    setLinkDemo(res.link)
   }
 
   return (
@@ -40,17 +38,6 @@ export default function ForgotPasswordPage() {
             Se o e-mail informado estiver cadastrado, enviamos um link de redefinição válido por
             15 minutos. Verifique sua caixa de entrada.
           </Alert>
-
-          {/* Simulação do e-mail: em produção o link iria por e-mail. */}
-          {linkDemo && (
-            <Alert tipo="info">
-              <strong>Demo (simulação do e-mail):</strong>
-              <br />
-              <Link to={linkDemo.replace(window.location.origin, '')} style={{ color: '#1D4ED8', fontWeight: 700 }}>
-                Abrir link de redefinição
-              </Link>
-            </Alert>
-          )}
         </>
       ) : (
         <form onSubmit={handleSubmit} noValidate>

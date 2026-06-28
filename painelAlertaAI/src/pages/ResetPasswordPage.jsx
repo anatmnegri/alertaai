@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import AuthShell from '../components/auth/AuthShell'
 import { TextField, SubmitButton, Alert } from '../components/auth/Field'
@@ -10,15 +10,25 @@ export default function ResetPasswordPage() {
   const token = params.get('token')
   const navigate = useNavigate()
 
-  // Valida o token uma única vez ao montar a tela.
-  const estadoToken = useMemo(() => validarToken(token), [token])
+  const [estadoToken, setEstadoToken] = useState({ validando: true, valido: false, expirado: false })
 
   const [senha, setSenha] = useState('')
   const [confirma, setConfirma] = useState('')
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState(false)
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    let ativo = true
+    validarToken(token).then((res) => {
+      if (!ativo) return
+      setEstadoToken({ validando: false, valido: !!res.valido, expirado: !!res.expirado })
+    })
+    return () => {
+      ativo = false
+    }
+  }, [token])
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setErro('')
 
@@ -31,13 +41,21 @@ export default function ResetPasswordPage() {
       return
     }
 
-    const res = redefinirSenha(token, senha)
+    const res = await redefinirSenha(token, senha)
     if (!res.ok) {
       setErro(res.erro)
       return
     }
     setSucesso(true)
     setTimeout(() => navigate('/login', { replace: true }), 2500)
+  }
+
+  if (estadoToken.validando) {
+    return (
+      <AuthShell titulo="Validando link" subtitulo="Aguarde enquanto verificamos o token de recuperação.">
+        <Alert tipo="info">Validando o link de redefinição...</Alert>
+      </AuthShell>
+    )
   }
 
   // Não expõe nenhum dado sensível do usuário (e-mail, nome etc.).

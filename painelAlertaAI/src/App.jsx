@@ -3,6 +3,7 @@ import './App.css'
 import ProtectedRoute from './components/ProtectedRoute'
 import Painel from './pages/Painel'
 import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import ChangePasswordPage from './pages/ChangePasswordPage'
@@ -12,6 +13,7 @@ function App() {
     <Routes>
       {/* Rotas públicas (autenticação) */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/cadastro" element={<RegisterPage />} />
       <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
       <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
 

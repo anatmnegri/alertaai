@@ -17,7 +17,7 @@ export default function ChangePasswordPage() {
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setErro('')
 
@@ -30,7 +30,7 @@ export default function ChangePasswordPage() {
       return
     }
 
-    const res = alterarSenha(atual, nova)
+    const res = await alterarSenha(atual, nova)
     if (!res.ok) {
       setErro(res.erro)
       return

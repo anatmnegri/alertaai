@@ -2,7 +2,16 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CloudRain, Droplets, RefreshCw, Wind } from 'lucide-react'
 
 const BASE = 'https://api.apac.pe.gov.br/api.php'
-const RECIFE_COORDS = { lat: -8.0476, lon: -34.877 }
+const MUNICIPIOS = [
+  { nome: 'Recife', lat: -8.0476, lon: -34.877 },
+  { nome: 'Olinda', lat: -7.9991, lon: -34.845 },
+  { nome: 'Jaboatao dos Guararapes', lat: -8.112, lon: -35.015 },
+  { nome: 'Paulista', lat: -7.9408, lon: -34.8731 },
+  { nome: 'Cabo de Santo Agostinho', lat: -8.2867, lon: -35.0372 },
+  { nome: 'Caruaru', lat: -8.2849, lon: -35.9699 },
+  { nome: 'Petrolina', lat: -9.3891, lon: -40.503 },
+  { nome: 'Garanhuns', lat: -8.8829, lon: -36.4966 },
+]
 
 const fontPoppins = "'Poppins', sans-serif"
 const fontNunito = "'Nunito Sans', sans-serif"
@@ -45,19 +54,23 @@ function Card({ children, style }) {
 }
 
 export default function PrevisoesApacPage() {
+  const [municipioIndex, setMunicipioIndex] = useState(0)
+  const [refreshKey, setRefreshKey] = useState(0)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [previsao, setPrevisao] = useState([])
   const [alertas, setAlertas] = useState([])
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState('')
 
-  const carregar = async (signal) => {
+  const municipioSelecionado = MUNICIPIOS[municipioIndex]
+
+  const carregar = async (signal, municipio) => {
     setCarregando(true)
     setErro('')
 
     try {
       const [previsaoRes, alertasRes] = await Promise.all([
-        getJson(`/previsao_municipio?lat=${RECIFE_COORDS.lat}&lon=${RECIFE_COORDS.lon}`, signal),
+        getJson(`/previsao_municipio?lat=${municipio.lat}&lon=${municipio.lon}`, signal),
         getJson('/alertas', signal),
       ])
 
@@ -93,9 +106,9 @@ export default function PrevisoesApacPage() {
 
   useEffect(() => {
     const ctrl = new AbortController()
-    carregar(ctrl.signal)
+    carregar(ctrl.signal, municipioSelecionado)
     return () => ctrl.abort()
-  }, [])
+  }, [municipioSelecionado, refreshKey])
 
   const resumoAtual = useMemo(() => previsao[0] || null, [previsao])
 
@@ -133,28 +146,83 @@ export default function PrevisoesApacPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            const ctrl = new AbortController()
-            carregar(ctrl.signal)
-          }}
-          style={{
-            border: 'none',
-            borderRadius: 10,
-            background: '#00936C',
-            color: '#FFFFFF',
-            padding: '10px 14px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            fontFamily: fontPoppins,
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
-          <RefreshCw size={15} /> Atualizar
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setMunicipioIndex((i) => (i - 1 + MUNICIPIOS.length) % MUNICIPIOS.length)}
+            style={{
+              border: '1px solid #D1D5DB',
+              borderRadius: 10,
+              background: '#FFFFFF',
+              color: '#334155',
+              padding: '10px 12px',
+              fontFamily: fontPoppins,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Anterior
+          </button>
+
+          <select
+            value={municipioIndex}
+            onChange={(e) => setMunicipioIndex(Number(e.target.value))}
+            style={{
+              border: '1px solid #D1D5DB',
+              borderRadius: 10,
+              background: '#FFFFFF',
+              color: '#111827',
+              padding: '10px 12px',
+              minWidth: 220,
+              fontFamily: fontPoppins,
+              fontSize: 12.5,
+              fontWeight: 600,
+            }}
+          >
+            {MUNICIPIOS.map((m, idx) => (
+              <option key={m.nome} value={idx}>
+                {m.nome}
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={() => setMunicipioIndex((i) => (i + 1) % MUNICIPIOS.length)}
+            style={{
+              border: '1px solid #D1D5DB',
+              borderRadius: 10,
+              background: '#FFFFFF',
+              color: '#334155',
+              padding: '10px 12px',
+              fontFamily: fontPoppins,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Proximo
+          </button>
+
+          <button
+            onClick={() => setRefreshKey((k) => k + 1)}
+            style={{
+              border: 'none',
+              borderRadius: 10,
+              background: '#00936C',
+              color: '#FFFFFF',
+              padding: '10px 14px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              fontFamily: fontPoppins,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <RefreshCw size={15} /> Atualizar
+          </button>
+        </div>
       </div>
 
       {erro && (

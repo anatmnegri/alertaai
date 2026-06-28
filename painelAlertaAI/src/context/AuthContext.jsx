@@ -6,10 +6,14 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [sessao, setSessao] = useState(() => auth.getSessao())
 
-  const login = useCallback((email, senha) => {
-    const res = auth.login(email, senha)
+  const login = useCallback(async (email, senha) => {
+    const res = await auth.login(email, senha)
     if (res.ok) setSessao(auth.getSessao())
     return res
+  }, [])
+
+  const registrar = useCallback(async (nome, email, senha) => {
+    return auth.registrarUsuario(nome, email, senha)
   }, [])
 
   const logout = useCallback(() => {
@@ -17,16 +21,19 @@ export function AuthProvider({ children }) {
     setSessao(null)
   }, [])
 
-  const alterarSenha = useCallback((atual, nova) => {
-    const res = auth.alterarSenha(atual, nova)
+  const alterarSenha = useCallback(async (atual, nova) => {
+    const email = sessao?.email
+    if (!email) return { ok: false, erro: 'Sessão inválida. Faça login novamente.' }
+    const res = await auth.alterarSenha(email, atual, nova)
     if (res.ok) setSessao(null) // senha antiga invalidada → sessão encerrada
     return res
-  }, [])
+  }, [sessao])
 
   const value = {
     sessao,
     autenticado: sessao !== null,
     login,
+    registrar,
     logout,
     alterarSenha,
   }
