@@ -25,7 +25,7 @@ const colunas        = ['ID', 'NAME', 'LOCALIZAÇÃO', 'DATA', 'TIPO', 'STATUS']
 const FILTROS = [
   { label: 'Todos',    value: null,       bg: 'rgba(0,0,0,0.06)',      cor: '#555'    },
   { label: 'Leve',     value: 'Leve',     bg: 'rgba(0,182,155,0.18)',  cor: '#00B69B' },
-  { label: 'Moderado', value: 'Moderado', bg: 'rgba(98,38,239,0.15)',  cor: '#6226EF' },
+  { label: 'Moderado', value: 'Moderado', bg: 'rgba(245,158,11,0.18)', cor: '#B45309' },
   { label: 'Crítico',  value: 'Crítico',  bg: 'rgba(239,56,38,0.15)', cor: '#EF3826'  },
 ]
 
