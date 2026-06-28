@@ -2,15 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CloudRain, Droplets, RefreshCw, Wind } from 'lucide-react'
 
 const BASE = 'https://api.apac.pe.gov.br/api.php'
-const MUNICIPIOS = [
-  { nome: 'Recife', lat: -8.0476, lon: -34.877 },
-  { nome: 'Olinda', lat: -7.9991, lon: -34.845 },
-  { nome: 'Jaboatao dos Guararapes', lat: -8.112, lon: -35.015 },
-  { nome: 'Paulista', lat: -7.9408, lon: -34.8731 },
-  { nome: 'Cabo de Santo Agostinho', lat: -8.2867, lon: -35.0372 },
-  { nome: 'Caruaru', lat: -8.2849, lon: -35.9699 },
-  { nome: 'Petrolina', lat: -9.3891, lon: -40.503 },
-  { nome: 'Garanhuns', lat: -8.8829, lon: -36.4966 },
+const FALLBACK_MUNICIPIOS = [
+  { nome: 'Recife', codigo: 2611606 },
+  { nome: 'Olinda', codigo: 2609600 },
+  { nome: 'Jaboatão dos Guararapes', codigo: 2607901 },
+  { nome: 'Paulista', codigo: 2610707 },
+  { nome: 'Cabo de Santo Agostinho', codigo: 2602902 },
+  { nome: 'Caruaru', codigo: 2604106 },
+  { nome: 'Petrolina', codigo: 2611101 },
+  { nome: 'Garanhuns', codigo: 2606002 },
 ]
 
 const fontPoppins = "'Poppins', sans-serif"
@@ -54,15 +54,45 @@ function Card({ children, style }) {
 }
 
 export default function PrevisoesApacPage() {
+  const [municipios, setMunicipios] = useState(FALLBACK_MUNICIPIOS)
   const [municipioIndex, setMunicipioIndex] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0)
   const [carregando, setCarregando] = useState(true)
+  const [carregandoMunicipios, setCarregandoMunicipios] = useState(true)
   const [erro, setErro] = useState('')
   const [previsao, setPrevisao] = useState([])
   const [alertas, setAlertas] = useState([])
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState('')
 
-  const municipioSelecionado = MUNICIPIOS[municipioIndex]
+  const municipioSelecionado = municipios[municipioIndex]
+
+  useEffect(() => {
+    const ctrl = new AbortController()
+
+    const carregarMunicipios = async () => {
+      try {
+        const lista = await getJson('/municipio', ctrl.signal)
+        if (Array.isArray(lista) && lista.length > 0) {
+          const ordenado = lista
+            .filter((item) => item && item.codigo && item.nome)
+            .map((item) => ({ codigo: item.codigo, nome: item.nome }))
+
+          if (ordenado.length > 0) {
+            setMunicipios(ordenado)
+            const idxRecife = ordenado.findIndex((m) => m.codigo === 2611606)
+            setMunicipioIndex(idxRecife >= 0 ? idxRecife : 0)
+          }
+        }
+      } catch {
+        // Mantém a lista fallback quando a API de municípios falhar.
+      } finally {
+        setCarregandoMunicipios(false)
+      }
+    }
+
+    carregarMunicipios()
+    return () => ctrl.abort()
+  }, [])
 
   const carregar = async (signal, municipio) => {
     setCarregando(true)
@@ -70,7 +100,7 @@ export default function PrevisoesApacPage() {
 
     try {
       const [previsaoRes, alertasRes] = await Promise.all([
-        getJson(`/previsao_municipio?lat=${municipio.lat}&lon=${municipio.lon}`, signal),
+        getJson(`/previsao_municipio?codigo=${municipio.codigo}`, signal),
         getJson('/alertas', signal),
       ])
 
@@ -106,7 +136,9 @@ export default function PrevisoesApacPage() {
 
   useEffect(() => {
     const ctrl = new AbortController()
-    carregar(ctrl.signal, municipioSelecionado)
+    if (municipioSelecionado) {
+      carregar(ctrl.signal, municipioSelecionado)
+    }
     return () => ctrl.abort()
   }, [municipioSelecionado, refreshKey])
 
@@ -148,7 +180,7 @@ export default function PrevisoesApacPage() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <button
-            onClick={() => setMunicipioIndex((i) => (i - 1 + MUNICIPIOS.length) % MUNICIPIOS.length)}
+            onClick={() => setMunicipioIndex((i) => (i - 1 + municipios.length) % municipios.length)}
             style={{
               border: '1px solid #D1D5DB',
               borderRadius: 10,
@@ -167,6 +199,7 @@ export default function PrevisoesApacPage() {
           <select
             value={municipioIndex}
             onChange={(e) => setMunicipioIndex(Number(e.target.value))}
+            disabled={carregandoMunicipios}
             style={{
               border: '1px solid #D1D5DB',
               borderRadius: 10,
@@ -179,15 +212,15 @@ export default function PrevisoesApacPage() {
               fontWeight: 600,
             }}
           >
-            {MUNICIPIOS.map((m, idx) => (
-              <option key={m.nome} value={idx}>
+            {municipios.map((m, idx) => (
+              <option key={`${m.codigo}-${m.nome}`} value={idx}>
                 {m.nome}
               </option>
             ))}
           </select>
 
           <button
-            onClick={() => setMunicipioIndex((i) => (i + 1) % MUNICIPIOS.length)}
+            onClick={() => setMunicipioIndex((i) => (i + 1) % municipios.length)}
             style={{
               border: '1px solid #D1D5DB',
               borderRadius: 10,

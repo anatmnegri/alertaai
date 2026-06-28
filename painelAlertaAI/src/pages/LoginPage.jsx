@@ -45,8 +45,8 @@ export default function LoginPage() {
           <Link to="/esqueci-senha" style={{ color: '#00936C', fontWeight: 600, textDecoration: 'none' }}>
             Esqueci minha senha
           </Link>
-          <Link to="/cadastro" style={{ color: '#1D4ED8', fontWeight: 700, textDecoration: 'none' }}>
-            Novo por aqui? Criar conta
+          <Link to="/cadastro" style={{ color: '#00936C', fontWeight: 700, textDecoration: 'none' }}>
+            Criar conta
           </Link>
         </div>
       }
