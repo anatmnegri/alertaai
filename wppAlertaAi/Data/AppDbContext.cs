@@ -9,4 +9,6 @@ public class AppDbContext : DbContext
 
     public DbSet<Occurrence> Occurrences => Set<Occurrence>();
     public DbSet<EmergencySession> EmergencySessions => Set<EmergencySession>();
+    public DbSet<AppUser> Users => Set<AppUser>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 }

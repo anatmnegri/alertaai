@@ -1,57 +1,25 @@
-// Autenticação mock (frontend) para o painel da Defesa Civil.
-// ⚠️ Uso acadêmico/demonstração: as credenciais ficam no localStorage.
-// Em produção isto seria substituído por um backend com hash forte (bcrypt/argon2),
-// HTTPS e envio real de e-mail. Aqui simulamos todo o fluxo no navegador.
-
-const ADMIN_KEY = 'alertaai_admin'
 const SESSION_KEY = 'alertaai_session'
-const RESET_KEY = 'alertaai_reset'
+const BASE_URL = 'http://localhost:5019'
 
-// Token de recuperação expira em 15 minutos (conforme critério de aceite)
-export const RESET_TOKEN_TTL_MS = 15 * 60 * 1000
-
-// Administrador padrão (seed) — exibido como dica na tela de login para a demo
-export const DEFAULT_ADMIN = {
-  email: 'admin@defesacivil.recife.gov.br',
-  senha: 'Admin@123',
-}
-
-// "Hash" leve só para não guardar a senha em texto puro no localStorage.
-// NÃO é criptografia real — apenas evita leitura casual durante a demonstração.
-function ofuscar(texto) {
+async function parseResponse(res, fallbackErro) {
+  let body = null
   try {
-    return btoa(unescape(encodeURIComponent(`alertaai::${texto}`)))
+    body = await res.json()
   } catch {
-    return `alertaai::${texto}`
+    body = null
   }
-}
 
-function lerAdmin() {
-  const raw = localStorage.getItem(ADMIN_KEY)
-  if (!raw) {
-    const seed = { email: DEFAULT_ADMIN.email, senhaHash: ofuscar(DEFAULT_ADMIN.senha) }
-    localStorage.setItem(ADMIN_KEY, JSON.stringify(seed))
-    return seed
+  if (!res.ok) {
+    return { ok: false, erro: body?.erro || fallbackErro }
   }
-  try {
-    return JSON.parse(raw)
-  } catch {
-    localStorage.removeItem(ADMIN_KEY)
-    return lerAdmin()
-  }
-}
 
-function salvarAdmin(admin) {
-  localStorage.setItem(ADMIN_KEY, JSON.stringify(admin))
+  return body || { ok: true }
 }
-
-// ─── Validações ───────────────────────────────────────────────────────────────
 
 export function emailValido(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email ?? '').trim())
 }
 
-// Regras de força da nova senha: mínimo 8, maiúscula, minúscula, número e especial.
 export function validarForcaSenha(senha) {
   const s = senha ?? ''
   return {
@@ -67,25 +35,38 @@ export function senhaForte(senha) {
   return Object.values(validarForcaSenha(senha)).every(Boolean)
 }
 
-// ─── Sessão / Login ─────────────────────────────────────────────────────────
-
-const ERRO_GENERICO = 'E-mail ou senha inválidos'
-
-export function login(email, senha) {
-  const admin = lerAdmin()
-  // Mensagem genérica em qualquer falha (não revela se o e-mail existe)
+export async function registrarUsuario(nome, email, senha) {
   if (!emailValido(email)) {
-    return { ok: false, erro: ERRO_GENERICO }
+    return { ok: false, erro: 'Informe um e-mail válido.' }
   }
-  const emailOk = email.trim().toLowerCase() === admin.email.toLowerCase()
-  const senhaOk = ofuscar(senha) === admin.senhaHash
-  if (!emailOk || !senhaOk) {
-    return { ok: false, erro: ERRO_GENERICO }
+  if (!senhaForte(senha)) {
+    return { ok: false, erro: 'A senha não atende aos requisitos de segurança.' }
   }
-  localStorage.setItem(
-    SESSION_KEY,
-    JSON.stringify({ email: admin.email, logadoEm: Date.now() }),
-  )
+
+  const res = await fetch(`${BASE_URL}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nome, email, senha }),
+  })
+
+  return parseResponse(res, 'Não foi possível concluir o cadastro agora.')
+}
+
+export async function login(email, senha) {
+  if (!emailValido(email)) {
+    return { ok: false, erro: 'E-mail ou senha inválidos' }
+  }
+
+  const res = await fetch(`${BASE_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, senha }),
+  })
+
+  const out = await parseResponse(res, 'E-mail ou senha inválidos')
+  if (!out.ok) return out
+
+  localStorage.setItem(SESSION_KEY, JSON.stringify(out.sessao))
   return { ok: true }
 }
 
@@ -107,84 +88,66 @@ export function estaAutenticado() {
   return getSessao() !== null
 }
 
-// ─── Alteração de senha (admin logado) ────────────────────────────────────────
-
-export function alterarSenha(senhaAtual, novaSenha) {
-  const admin = lerAdmin()
-  if (ofuscar(senhaAtual) !== admin.senhaHash) {
-    return { ok: false, erro: 'A senha atual está incorreta.' }
-  }
+export async function alterarSenha(email, senhaAtual, novaSenha) {
   if (!senhaForte(novaSenha)) {
     return { ok: false, erro: 'A nova senha não atende aos requisitos de segurança.' }
   }
-  if (ofuscar(novaSenha) === admin.senhaHash) {
-    return { ok: false, erro: 'A nova senha deve ser diferente da atual.' }
-  }
-  salvarAdmin({ ...admin, senhaHash: ofuscar(novaSenha) })
-  // A senha antiga é invalidada imediatamente: encerra a sessão e remove
-  // quaisquer tokens de recuperação pendentes.
-  localStorage.removeItem(RESET_KEY)
+
+  const res = await fetch(`${BASE_URL}/api/auth/change-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, senhaAtual, novaSenha }),
+  })
+
+  const out = await parseResponse(res, 'Não foi possível alterar a senha.')
+  if (!out.ok) return out
+
   logout()
   return { ok: true }
 }
 
-// ─── Recuperação de senha (esqueci minha senha) ──────────────────────────────
-
-function gerarToken() {
-  if (window.crypto?.randomUUID) return window.crypto.randomUUID()
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
-
-// Gera um token temporário. Retorna sempre sucesso (não revela se o e-mail existe).
-// `link` só é preenchido quando o e-mail confere — simula o envio do e-mail
-// exibindo o link na própria tela para fins de demonstração.
-export function solicitarRecuperacao(email) {
-  const admin = lerAdmin()
+export async function solicitarRecuperacao(email) {
   if (!emailValido(email)) {
     return { ok: false, erro: 'Informe um e-mail válido.' }
   }
-  let link = null
-  if (email.trim().toLowerCase() === admin.email.toLowerCase()) {
-    const token = gerarToken()
-    const expiraEm = Date.now() + RESET_TOKEN_TTL_MS
-    localStorage.setItem(RESET_KEY, JSON.stringify({ token, expiraEm }))
-    link = `${window.location.origin}/redefinir-senha?token=${token}`
-  }
-  return { ok: true, link }
+
+  const res = await fetch(`${BASE_URL}/api/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
+
+  return parseResponse(res, 'Não foi possível enviar o e-mail de recuperação.')
 }
 
-export function validarToken(token) {
-  const raw = localStorage.getItem(RESET_KEY)
-  if (!raw || !token) return { valido: false }
+export async function validarToken(token) {
+  if (!token) return { valido: false }
+
+  const res = await fetch(`${BASE_URL}/api/auth/validate-reset-token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  })
+
+  if (!res.ok) return { valido: false }
+
   try {
-    const { token: salvo, expiraEm } = JSON.parse(raw)
-    if (token !== salvo) return { valido: false }
-    if (Date.now() > expiraEm) {
-      localStorage.removeItem(RESET_KEY)
-      return { valido: false, expirado: true }
-    }
-    return { valido: true }
+    return await res.json()
   } catch {
     return { valido: false }
   }
 }
 
-export function redefinirSenha(token, novaSenha) {
-  const check = validarToken(token)
-  if (!check.valido) {
-    return {
-      ok: false,
-      erro: check.expirado
-        ? 'O link de recuperação expirou. Solicite um novo.'
-        : 'Link de recuperação inválido.',
-    }
-  }
+export async function redefinirSenha(token, novaSenha) {
   if (!senhaForte(novaSenha)) {
     return { ok: false, erro: 'A nova senha não atende aos requisitos de segurança.' }
   }
-  const admin = lerAdmin()
-  salvarAdmin({ ...admin, senhaHash: ofuscar(novaSenha) })
-  localStorage.removeItem(RESET_KEY)
-  logout()
-  return { ok: true }
+
+  const res = await fetch(`${BASE_URL}/api/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, novaSenha }),
+  })
+
+  return parseResponse(res, 'Não foi possível redefinir a senha.')
 }

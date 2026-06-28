@@ -20,7 +20,7 @@ export default function LoginPage() {
     return <Navigate to="/" replace />
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setErro('')
 
@@ -29,7 +29,7 @@ export default function LoginPage() {
       return
     }
 
-    const res = login(email, senha)
+    const res = await login(email, senha)
     if (!res.ok) {
       setErro(res.erro) // mensagem genérica: "E-mail ou senha inválidos"
       return
@@ -41,9 +41,14 @@ export default function LoginPage() {
     <AuthShell
       titulo="Acesso ao Painel"
       footer={
-        <Link to="/esqueci-senha" style={{ color: '#00936C', fontWeight: 600, textDecoration: 'none' }}>
-          Esqueci minha senha
-        </Link>
+        <div style={{ display: 'grid', gap: 8, justifyItems: 'center' }}>
+          <Link to="/esqueci-senha" style={{ color: '#00936C', fontWeight: 600, textDecoration: 'none' }}>
+            Esqueci minha senha
+          </Link>
+          <Link to="/cadastro" style={{ color: '#1D4ED8', fontWeight: 700, textDecoration: 'none' }}>
+            Novo por aqui? Criar conta
+          </Link>
+        </div>
       }
     >
       <form onSubmit={handleSubmit} noValidate>
